@@ -189,7 +189,6 @@ dependencies = [
  "clap",
  "macroquad",
  "ns-core",
- "thiserror",
 ]
 
 [[package]]
@@ -385,6 +384,7 @@ name = "ns-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "thiserror",
 ]
 
 [[package]]

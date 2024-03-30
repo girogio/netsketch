@@ -1,27 +1,27 @@
 use bincode::{Decode, Encode};
 
-#[derive(Encode, Decode, PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum CanvasCommand {
     Line {
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
     },
     Circle {
-        x: f64,
-        y: f64,
-        radius: f64,
+        x: f32,
+        y: f32,
+        radius: f32,
     },
     Rect {
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
     },
     Text {
-        x: f64,
-        y: f64,
+        x: f32,
+        y: f32,
         text: String,
     },
 }

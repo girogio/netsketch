@@ -1,8 +1,9 @@
+use crate::errors::Result;
 use bincode::{config, Decode, Encode};
 
 use super::commands::CanvasCommand;
 
-#[derive(Encode, Decode, PartialEq, Debug, Clone)]
+#[derive(Encode, Decode, Debug, Clone)]
 pub enum Packet {
     Connect(String),
     Disconnect(String),
@@ -17,10 +18,8 @@ impl Packet {
         packet_length_bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Self {
-        bincode::decode_from_slice(bytes, config::standard())
-            .unwrap()
-            .0
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
+        Ok(bincode::decode_from_slice(bytes, config::standard())?.0)
     }
 }
 

@@ -1,5 +1,5 @@
 use std::{
-    io::Read,
+    io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
 
@@ -31,14 +31,31 @@ fn main() {
 }
 
 fn handle_client(mut stream: TcpStream) {
-    // u32
-    let mut length_header = [0u8; 4];
-    stream.read_exact(&mut length_header).unwrap();
-    let length = u32::from_le_bytes(length_header);
+    loop {
+        // u32
+        let mut length_header = [0u8; 4];
+        stream.read_exact(&mut length_header).unwrap();
+        let length = u32::from_le_bytes(length_header);
 
-    // Packet
-    let mut buffer = vec![0u8; length as usize];
-    stream.read_exact(&mut buffer).unwrap();
-    let packet = Packet::from_bytes(&buffer);
-    println!("{packet}");
+        // Packet
+        let mut buffer = vec![0u8; length as usize];
+        stream.read_exact(&mut buffer).unwrap();
+        stream.flush().unwrap();
+
+        let packet = Packet::try_from_bytes(&buffer);
+
+        if let Ok(packet) = packet {
+            match packet {
+                Packet::Disconnect(nickname) => {
+                    println!("{} disconnected", nickname);
+                    break;
+                }
+                _ => {
+                    println!("{packet}");
+                }
+            }
+        } else if let Err(e) = packet {
+            eprintln!("Error: {}", e);
+        }
+    }
 }
