@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+
+members = ["ns-server", "ns-client", "ns-core"]
+
+
+[workspace.dependencies]
+bincode = "=2.0.0-rc.3"
