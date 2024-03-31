@@ -41,7 +41,7 @@ async fn main() {
     let packet_sender = PacketHandler::start(args.server.to_string(), args.port, canvas_sender)
         .expect("Failed to start packet handler");
 
-    println!("{}", "=".repeat(50));
+    println!("\n{}", "=".repeat(50));
     println!("Connected to server at {}:{}", args.server, args.port);
     println!("{}", "=".repeat(50));
 
@@ -55,20 +55,8 @@ async fn main() {
 }
 
 async fn draw_game_canvas(tx: Sender<Packet>, canvas_receiver: Receiver<CanvasEntry>) {
-    set_pc_assets_folder("ns-client/assets/music");
-
-    let bg_music = audio::load_sound("music.wav").await.unwrap();
-
     let mut show_exit_dialog = false;
     let mut user_decided_to_exit = false;
-
-    audio::play_sound(
-        &bg_music,
-        PlaySoundParams {
-            volume: 0.1,
-            looped: true,
-        },
-    );
 
     let mut canvas = Canvas::new();
 

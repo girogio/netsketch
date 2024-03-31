@@ -24,6 +24,7 @@ pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
         match args.as_slice() {
             ["draw", ..] => match tool {
                 Tool::Line => {
+                    println!("Drawing line");
                     let x1 = args[1].parse().unwrap();
                     let y1 = args[2].parse().unwrap();
                     let x2 = args[3].parse().unwrap();
@@ -41,22 +42,57 @@ pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
                 }
                 Tool::Circle => {
                     println!("Drawing circle");
+                    let x = args[1].parse().unwrap();
+                    let y = args[2].parse().unwrap();
+                    let radius = args[3].parse().unwrap();
+
+                    let packet = Packet::Draw(CanvasElement::Circle {
+                        x,
+                        y,
+                        radius,
+                        colour,
+                    });
+
+                    packet_sender.send(packet).unwrap();
                 }
                 Tool::Rectangle => {
                     println!("Drawing rectangle");
+
+                    let x = args[1].parse().unwrap();
+                    let y = args[2].parse().unwrap();
+                    let width = args[3].parse().unwrap();
+                    let height = args[4].parse().unwrap();
+
+                    let packet = Packet::Draw(CanvasElement::Rect {
+                        x,
+                        y,
+                        width,
+                        height,
+                        colour,
+                    });
+
+                    packet_sender.send(packet).unwrap();
                 }
                 Tool::Text => {
                     println!("Drawing text");
+
+                    let x = args[1].parse().unwrap();
+                    let y = args[2].parse().unwrap();
+                    let text = args[3..].join(" ");
+
+                    let packet = Packet::Draw(CanvasElement::Text { x, y, text, colour });
+
+                    packet_sender.send(packet).unwrap();
                 }
             },
 
-            ["colour", r, g, b] => {
-                println!("Changing colour to ({}, {}, {})", r, g, b);
+            ["colour", r, g, b, a] => {
+                println!("Changing colour to ({}, {}, {}, {})", r, g, b, a);
                 colour = [
                     r.parse().unwrap(),
                     g.parse().unwrap(),
                     b.parse().unwrap(),
-                    255,
+                    a.parse().unwrap(),
                 ];
             }
 
