@@ -7,7 +7,7 @@ use std::{
 };
 
 use models::state::ServerState;
-use ns_core::models::{canvas::CanvasAction, packets::Packet};
+use ns_core::models::packets::Packet;
 
 fn main() {
     // bind the server to the local address

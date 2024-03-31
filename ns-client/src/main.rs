@@ -11,7 +11,6 @@ use macroquad::{
 };
 use ns_core::models::{
     canvas::{Canvas, CanvasEntry},
-    commands::CanvasElement,
     packets::Packet,
 };
 
