@@ -6,12 +6,36 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use clap::Parser;
 use models::state::ServerState;
 use ns_core::models::packets::Packet;
 
+#[derive(Parser)]
+struct Args {
+    /// The address of the netsketch server
+    #[clap(short, long)]
+    address: String,
+    /// The port of the netsketch server
+    #[clap(short, long)]
+    port: u16,
+}
+
 fn main() {
+    let args = Args::parse();
+
     // bind the server to the local address
-    let server = TcpListener::bind("127.0.0.1:6666").unwrap();
+    let server = match TcpListener::bind(format!("{}:{}", args.address, args.port)) {
+        Ok(server) => server,
+        Err(_) => {
+            eprintln!(
+                "Failed to bind the server to {}:{}",
+                args.address, args.port
+            );
+            eprintln!("Exiting...");
+            std::process::exit(1);
+        }
+    };
+
     let server_state = Arc::new(Mutex::new(ServerState::new()));
 
     // listen for incoming connections
