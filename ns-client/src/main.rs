@@ -5,7 +5,6 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use clap::Parser;
 use macroquad::{
-    audio::{self, PlaySoundParams},
     prelude::*,
     ui::{hash, root_ui, widgets::Window},
 };
