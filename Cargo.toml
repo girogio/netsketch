@@ -7,3 +7,4 @@ members = ["ns-server", "ns-client", "ns-core"]
 [workspace.dependencies]
 bincode = "=2.0.0-rc.3"
 thiserror = "1.0.58"
+macroquad = { version = "0.4.5", features = ["audio"] }

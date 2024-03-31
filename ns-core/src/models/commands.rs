@@ -1,54 +1,78 @@
 use bincode::{Decode, Encode};
 
 #[derive(Encode, Decode, Debug, Clone)]
-pub enum CanvasCommand {
+pub enum CanvasElement {
     Line {
-        x1: f32,
-        y1: f32,
-        x2: f32,
-        y2: f32,
+        x1: u16,
+        y1: u16,
+        x2: u16,
+        y2: u16,
+        colour: [u8; 4],
     },
     Circle {
-        x: f32,
-        y: f32,
-        radius: f32,
+        x: u16,
+        y: u16,
+        radius: u16,
+        colour: [u8; 4],
     },
     Rect {
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        colour: [u8; 4],
     },
     Text {
-        x: f32,
-        y: f32,
+        x: u16,
+        y: u16,
         text: String,
+        colour: [u8; 4],
     },
 }
 
-impl std::fmt::Display for CanvasCommand {
+impl std::fmt::Display for CanvasElement {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            CanvasCommand::Line { x1, y1, x2, y2 } => {
-                write!(f, "Line: ({}, {}) -> ({}, {})", x1, y1, x2, y2)
+            CanvasElement::Line {
+                x1,
+                y1,
+                x2,
+                y2,
+                colour,
+            } => {
+                write!(
+                    f,
+                    "Line: ({}, {}) -> ({}, {}) in {:?}",
+                    x1, y1, x2, y2, colour,
+                )
             }
-            CanvasCommand::Circle { x, y, radius } => {
-                write!(f, "Circle: ({}, {}) - radius: {}", x, y, radius)
+            CanvasElement::Circle {
+                x,
+                y,
+                radius,
+                colour,
+            } => {
+                write!(
+                    f,
+                    "Circle: ({}, {}) in {:?} - radius: {}",
+                    x, y, colour, radius
+                )
             }
-            CanvasCommand::Rect {
+            CanvasElement::Rect {
                 x,
                 y,
                 width,
                 height,
+                colour,
             } => {
                 write!(
                     f,
-                    "Rect: ({}, {}) - width: {}, height: {}",
-                    x, y, width, height
+                    "Rect: ({}, {}) - width: {}, height: {} in {:?}",
+                    x, y, width, height, colour,
                 )
             }
-            CanvasCommand::Text { x, y, text } => {
-                write!(f, "Text: ({}, {}) - {}", x, y, text)
+            CanvasElement::Text { x, y, text, colour } => {
+                write!(f, "Text: ({}, {}) - {} in {:?}", x, y, text, colour)
             }
         }
     }

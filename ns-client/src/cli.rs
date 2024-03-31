@@ -1,6 +1,6 @@
 use std::{io::Write, sync::mpsc::Sender};
 
-use ns_core::models::{commands::CanvasCommand, packets::Packet};
+use ns_core::models::{commands::CanvasElement, packets::Packet};
 
 enum Tool {
     Line,
@@ -12,7 +12,7 @@ enum Tool {
 pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
     let stdin = std::io::stdin();
 
-    let mut colour: (f32, f32, f32) = (0.0, 0.0, 0.0); // (r, g, b
+    let mut colour: [u8; 4] = [0, 0, 0, 255];
     let mut tool = Tool::Line;
 
     loop {
@@ -29,7 +29,14 @@ pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
                     let x2 = args[3].parse().unwrap();
                     let y2 = args[4].parse().unwrap();
 
-                    let packet = Packet::Command(CanvasCommand::Line { x1, y1, x2, y2 });
+                    let packet = Packet::Draw(CanvasElement::Line {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        colour,
+                    });
+
                     packet_sender.send(packet).unwrap();
                 }
                 Tool::Circle => {
@@ -45,7 +52,12 @@ pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
 
             ["colour", r, g, b] => {
                 println!("Changing colour to ({}, {}, {})", r, g, b);
-                colour = (r.parse().unwrap(), g.parse().unwrap(), b.parse().unwrap());
+                colour = [
+                    r.parse().unwrap(),
+                    g.parse().unwrap(),
+                    b.parse().unwrap(),
+                    255,
+                ];
             }
 
             ["tool", _] => {
@@ -61,14 +73,12 @@ pub fn handle_ns_prompt(packet_sender: Sender<Packet>) {
                 }
             }
 
-            ["clear"] => {
+            ["clear", "all" | "mine"] => {
                 println!("Clearing canvas");
             }
 
             ["exit"] => {
-                packet_sender
-                    .send(Packet::Disconnect("Me".to_string()))
-                    .unwrap();
+                packet_sender.send(Packet::Disconnect).unwrap();
                 drop(packet_sender);
                 std::process::exit(0);
             }

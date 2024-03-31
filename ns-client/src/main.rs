@@ -1,15 +1,21 @@
 mod cli;
 mod connection;
 
+use std::sync::mpsc::{Receiver, Sender};
+
 use clap::Parser;
 use macroquad::{
     audio::{self, PlaySoundParams},
     prelude::*,
     ui::{hash, root_ui, widgets::Window},
 };
-use ns_core::models::packets::Packet;
+use ns_core::models::{
+    canvas::{Canvas, CanvasEntry},
+    commands::CanvasElement,
+    packets::Packet,
+};
 
-use crate::connection::PacketSender;
+use crate::connection::PacketHandler;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -31,22 +37,26 @@ async fn main() {
 
     let args = Cli::parse();
 
-    let tx = PacketSender::start(args.server.to_string(), args.port)
+    let (canvas_sender, canvas_receiver) = std::sync::mpsc::channel::<CanvasEntry>();
+
+    let packet_sender = PacketHandler::start(args.server.to_string(), args.port, canvas_sender)
         .expect("Failed to start packet handler");
 
     println!("{}", "=".repeat(50));
     println!("Connected to server at {}:{}", args.server, args.port);
     println!("{}", "=".repeat(50));
 
-    tx.send(Packet::Connect(args.nickname)).unwrap();
+    packet_sender.send(Packet::Connect(args.nickname)).unwrap();
 
-    std::thread::spawn(move || cli::handle_ns_prompt(tx));
+    let tx_cloned = packet_sender.clone();
 
-    draw_game_canvas().await;
+    std::thread::spawn(move || cli::handle_ns_prompt(tx_cloned));
+
+    draw_game_canvas(packet_sender.clone(), canvas_receiver).await;
 }
 
-async fn draw_game_canvas() {
-    set_pc_assets_folder("ns-client/src/music");
+async fn draw_game_canvas(tx: Sender<Packet>, canvas_receiver: Receiver<CanvasEntry>) {
+    set_pc_assets_folder("ns-client/assets/music");
 
     let bg_music = audio::load_sound("music.wav").await.unwrap();
 
@@ -61,6 +71,8 @@ async fn draw_game_canvas() {
         },
     );
 
+    let mut canvas = Canvas::new();
+
     loop {
         clear_background(LIGHTGRAY);
 
@@ -68,15 +80,20 @@ async fn draw_game_canvas() {
             show_exit_dialog = true;
         }
 
-        draw_circle(15.0, 15.0, 15.0, YELLOW);
-
         if show_exit_dialog {
             draw_exit_dialog(&mut user_decided_to_exit, &mut show_exit_dialog);
         }
 
         if user_decided_to_exit {
+            tx.send(Packet::Disconnect).unwrap();
             break;
         }
+
+        while let Ok(command) = canvas_receiver.try_recv() {
+            canvas.actions.push(command.clone());
+        }
+
+        canvas.draw();
 
         next_frame().await;
     }

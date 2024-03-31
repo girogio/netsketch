@@ -384,6 +384,7 @@ name = "ns-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "macroquad",
  "thiserror",
 ]
 
@@ -504,6 +505,7 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "macroquad",
  "ns-core",
 ]
 

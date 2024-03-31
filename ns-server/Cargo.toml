@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 bincode.workspace = true
+macroquad.workspace = true
 ns-core = { path = "../ns-core" }
