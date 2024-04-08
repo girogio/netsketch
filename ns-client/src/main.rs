@@ -5,7 +5,6 @@ mod models;
 use clap::Parser;
 use macroquad::{
     prelude::*,
-    ui::{hash, root_ui, widgets::Window},
 };
 
 use crate::{

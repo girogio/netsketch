@@ -25,7 +25,6 @@ pub struct ClientCanvas {
     pub show_exit_dialog: bool,
     pub canvas_receiver: Receiver<CanvasCommand>,
     pub tcp_packet_sender: Sender<TcpPacket>,
-    pub action_stack: Vec<UndoableAction>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,13 +35,6 @@ pub enum CanvasCommand {
     List(Filter),
     ChangeTool(ToolType),
     ChangeColour([u8; 4]),
-    Undo,
-}
-
-enum UndoableAction {
-    Draw(usize),
-    Delete(CanvasEntry),
-    Overwrite(usize, CanvasEntry),
 }
 
 impl ClientCanvas {
@@ -58,7 +50,6 @@ impl ClientCanvas {
             canvas: Canvas::new(),
             user_decided_to_exit: false,
             show_exit_dialog: false,
-            action_stack: Vec::new(),
             canvas_receiver,
             tcp_packet_sender,
         }
@@ -107,9 +98,6 @@ impl ClientCanvas {
 
             CanvasCommand::ChangeColour(colour) => {
                 self.selected_colour = colour;
-            }
-            CanvasCommand::Undo => {
-                // self.selected_colour = colour;
             }
         }
     }

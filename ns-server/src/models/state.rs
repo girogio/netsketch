@@ -34,10 +34,6 @@ impl ServerState {
         self.users.remove(&stream.peer_addr().unwrap());
     }
 
-    pub fn get_user_data(&self, sock_addr: &SocketAddr) -> Option<&UserData> {
-        self.users.get(sock_addr)
-    }
-
     pub fn get_username(&self, stream: &TcpStream) -> String {
         self.users
             .get(&stream.peer_addr().unwrap())
