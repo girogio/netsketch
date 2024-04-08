@@ -35,6 +35,8 @@ pub enum CanvasCommand {
     List(Filter),
     ChangeTool(ToolType),
     ChangeColour([u8; 4]),
+    ShowAll,
+    ShowMine,
 }
 
 impl ClientCanvas {
@@ -57,6 +59,20 @@ impl ClientCanvas {
 
     pub fn process_command(&mut self, command: CanvasCommand) {
         match command.clone() {
+            CanvasCommand::ShowAll => {
+                self.canvas
+                    .actions
+                    .iter_mut()
+                    .for_each(|entry| entry.shown = true);
+            }
+
+            CanvasCommand::ShowMine => {
+                self.canvas
+                    .actions
+                    .iter_mut()
+                    .for_each(|entry| entry.shown = entry.author == self.nickname);
+            }
+
             CanvasCommand::Draw(entry) => self.canvas.actions.push(entry),
 
             CanvasCommand::Overwrite(id, new_entry) => {
@@ -168,6 +184,7 @@ impl ClientCanvas {
             self.canvas
                 .actions
                 .iter()
+                .filter(|entry| entry.shown)
                 .for_each(|action| self.draw_action(action));
 
             draw_text(

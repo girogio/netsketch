@@ -127,6 +127,16 @@ pub fn handle_ns_prompt(
                 }
             },
 
+            ["show", "all" | "mine"] => match args[1] {
+                "all" => {
+                    canvas_sender.send(CanvasCommand::ShowAll).unwrap();
+                }
+                "mine" => {
+                    canvas_sender.send(CanvasCommand::ShowMine).unwrap();
+                }
+                _ => unreachable!(),
+            },
+
             ["delete", _] => {
                 let id: usize = args[1].parse()?;
 

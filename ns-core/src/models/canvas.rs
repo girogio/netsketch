@@ -1,5 +1,3 @@
-
-
 use bincode::{Decode, Encode};
 
 /// The different types of elements that can be drawn on the canvas.
@@ -36,6 +34,7 @@ pub enum CanvasElement {
 #[derive(Debug, Encode, Decode, Clone)]
 pub struct CanvasEntry {
     pub id: usize,
+    pub shown: bool,
     pub element: CanvasElement,
     pub author: String,
 }
@@ -59,6 +58,7 @@ impl Canvas {
     pub fn add_action(&mut self, user: String, element: &CanvasElement) -> CanvasEntry {
         let entry = CanvasEntry {
             id: self.current_action_id,
+            shown: true,
             element: element.clone(),
             author: user.clone(),
         };
@@ -81,6 +81,7 @@ impl Canvas {
             let entry = CanvasEntry {
                 id,
                 element: element.clone(),
+                shown: self.actions[index].shown,
                 author: self.actions[index].author.clone(),
             };
             self.actions[index] = entry.clone();
