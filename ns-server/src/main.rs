@@ -4,11 +4,14 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use clap::Parser;
-use models::state::ServerState;
-use ns_core::models::packets::Packet;
+use models::{state::ServerState, user_data::Action};
+
+use ns_core::errors::Result;
+use ns_core::models::packets::TcpPacket;
 
 #[derive(Parser)]
 struct Args {
@@ -62,53 +65,214 @@ fn main() {
 
 fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) {
     loop {
-        // u32
-        let mut length_header = [0u8; 4];
-        stream.read_exact(&mut length_header).unwrap();
-        let length = u32::from_le_bytes(length_header);
+        let mut task = || -> Result<()> {
+            // Set 10 minute timeout
+            stream.set_read_timeout(Some(Duration::from_secs(600)))?;
 
-        // Packet
-        let mut buffer = vec![0u8; length as usize];
-        stream.read_exact(&mut buffer).unwrap();
-        stream.flush().unwrap();
+            // u32
+            let mut length_header = [0u8; 4];
+            stream.read_exact(&mut length_header)?;
+            let length = u32::from_le_bytes(length_header);
 
-        let packet = if let Ok(packet) = Packet::try_from_bytes(&buffer) {
-            packet
-        } else {
-            eprintln!("Malformed packet: {:?}", buffer);
-            continue;
+            // Packet
+            let mut buffer = vec![0u8; length as usize];
+            stream.read_exact(&mut buffer)?;
+            stream.flush()?;
+
+            let packet = TcpPacket::try_from_bytes(&buffer)?;
+
+            // Reserve the server state for this thread
+            let mut server_state = server_state.lock().unwrap();
+
+            match packet {
+                TcpPacket::Connect(nickname) => {
+                    server_state.connect_user(&stream, nickname);
+                    let update_packet = TcpPacket::LoadCanvas(server_state.canvas.actions.clone());
+                    let packet_bytes = update_packet.to_bytes();
+                    stream.write_all(&packet_bytes)?;
+                    stream.flush()?;
+                }
+
+                TcpPacket::UpdateRequest(id, element) => {
+                    let previous_entry = server_state.canvas.get_entry(id).cloned();
+
+                    match server_state.canvas.update_entry(id, &element) {
+                        Some(entry) => {
+                            let update_packet = TcpPacket::UpdateResponse(id, entry);
+                            for connection in server_state.connections.iter_mut() {
+                                let packet_bytes = update_packet.to_bytes();
+                                connection.write_all(&packet_bytes)?;
+                                connection.flush()?;
+                            }
+
+                            if let Some(previous_entry) = previous_entry {
+                                if let Some(user_data) =
+                                    server_state.users.get_mut(&stream.peer_addr()?)
+                                {
+                                    user_data
+                                        .action_history
+                                        .push(Action::Update(previous_entry))
+                                }
+                            }
+                        }
+                        None => {
+                            let notification_packet = TcpPacket::Notification(format!(
+                                "Entry with id {} does not exist",
+                                id
+                            ));
+                            let packet_bytes = notification_packet.to_bytes();
+                            stream.write_all(&packet_bytes)?;
+                            stream.flush()?;
+                        }
+                    }
+                }
+
+                TcpPacket::Delete(id) => {
+                    let entry = server_state.canvas.get_entry(id).cloned();
+
+                    if let Some(entry) = entry {
+                        if let Some(user_data) = server_state.users.get_mut(&stream.peer_addr()?) {
+                            user_data.action_history.push(Action::Delete(entry.clone()))
+                        }
+
+                        server_state.canvas.delete_entry(id);
+                        let update_packet = TcpPacket::Delete(id);
+                        for connection in server_state.connections.iter_mut() {
+                            let packet_bytes = update_packet.to_bytes();
+                            connection.write_all(&packet_bytes)?;
+                            connection.flush()?;
+                        }
+                    }
+                }
+
+                TcpPacket::Undo => {
+                    let user = server_state.users.get_mut(&stream.peer_addr()?);
+
+                    if let Some(user) = user {
+                        let last_action = user.action_history.pop();
+
+                        if let Some(last_action) = last_action {
+                            match last_action {
+                                Action::Delete(entry) => {
+                                    // Recreate entry
+                                    server_state.canvas.actions.push(entry.clone());
+                                    let draw_packet = TcpPacket::DrawResponse(entry);
+                                    for connection in server_state.connections.iter_mut() {
+                                        let bytes = draw_packet.to_bytes();
+                                        connection.write_all(&bytes)?;
+                                        connection.flush()?;
+                                    }
+                                }
+                                Action::Draw(id) => {
+                                    // Delete entry with that id
+                                    server_state.canvas.delete_entry(id);
+                                    let update_packet = TcpPacket::Delete(id);
+                                    for connection in server_state.connections.iter_mut() {
+                                        let packet_bytes = update_packet.to_bytes();
+                                        connection.write_all(&packet_bytes)?;
+                                        connection.flush()?;
+                                    }
+                                }
+                                Action::Update(previous_entry) => {
+                                    // Replace entry
+                                    let current_entry = server_state
+                                        .canvas
+                                        .actions
+                                        .iter_mut()
+                                        .find(|entry| entry.id == previous_entry.id);
+
+                                    if let Some(current_entry) = current_entry {
+                                        *current_entry = previous_entry
+                                    }
+                                }
+                                Action::Clear(prev_canvas_state) => {
+                                    let actions = prev_canvas_state.actions.clone();
+                                    server_state.canvas = prev_canvas_state;
+
+                                    for connection in server_state.connections.iter_mut() {
+                                        let update_packet = TcpPacket::LoadCanvas(actions.clone());
+                                        let packet_bytes = update_packet.to_bytes();
+                                        connection.write_all(&packet_bytes)?;
+                                        connection.flush()?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                TcpPacket::Disconnect => {
+                    server_state.disconnect_user(&stream);
+                }
+
+                TcpPacket::DrawRequest(action) => {
+                    let new_entry_id = if let Some(user) =
+                        server_state.users.get(&stream.peer_addr()?).cloned()
+                    {
+                        let new_entry = server_state.canvas.add_action(user.name.clone(), &action);
+
+                        // Send the update to all connected clients
+                        let update_packet = TcpPacket::DrawResponse(new_entry.clone());
+                        for connection in server_state.connections.iter_mut() {
+                            let packet_bytes = update_packet.to_bytes();
+                            connection.write_all(&packet_bytes)?;
+                            connection.flush()?;
+                        }
+
+                        Some(new_entry.id)
+                    } else {
+                        None
+                    };
+
+                    // Add action to user history
+                    if let (Some(user), Some(id)) = (
+                        server_state.users.get_mut(&stream.peer_addr()?),
+                        new_entry_id,
+                    ) {
+                        user.action_history.push(Action::Draw(id));
+                    }
+                }
+
+                TcpPacket::ClearRequest { only_owned } => {
+                    let prev_canvas_state = server_state.canvas.clone();
+
+                    if let Some(user_data) = server_state.users.get_mut(&stream.peer_addr()?) {
+                        user_data
+                            .action_history
+                            .push(Action::Clear(prev_canvas_state));
+                    }
+
+                    let ids_to_delete = server_state
+                        .canvas
+                        .actions
+                        .iter()
+                        .filter_map(|entry| {
+                            if only_owned && entry.author != server_state.get_username(&stream) {
+                                return None;
+                            }
+                            Some(entry.id)
+                        })
+                        .collect();
+                    let update_packet = TcpPacket::ClearResponse { ids_to_delete };
+                    for connection in server_state.connections.iter_mut() {
+                        let packet_bytes = update_packet.to_bytes();
+                        connection.write_all(&packet_bytes)?;
+                        connection.flush()?;
+                    }
+                }
+
+                _ => {}
+            }
+
+            Ok(())
         };
 
-        // Reserve the server state for this thread
-        let mut server_state = server_state.lock().unwrap();
-
-        match packet {
-            Packet::Connect(nickname) => {
-                server_state.connect_user(&stream, nickname);
-                let update_packet = Packet::LoadCanvas(server_state.canvas.actions.clone());
-                let packet_bytes = update_packet.to_bytes();
-                stream.write_all(&packet_bytes).unwrap();
-            }
-
-            Packet::Disconnect => {
-                server_state.disconnect_user(&stream);
+        if let Err(e) = task() {
+            {
+                eprintln!("{e}");
+                server_state.lock().unwrap().disconnect_user(&stream);
                 break;
             }
-
-            Packet::Draw(action) => {
-                // Draw on the server's canvas
-                let current_user = server_state.get_username(&stream);
-
-                let new_entry = server_state.canvas.add_action(current_user, &action);
-
-                // Send the update to all connected clients
-                let update_packet = Packet::UpdatePeers(new_entry);
-                for connection in server_state.connections.iter_mut() {
-                    let packet_bytes = update_packet.to_bytes();
-                    connection.write_all(&packet_bytes).unwrap();
-                }
-            }
-            _ => {}
         }
     }
 }

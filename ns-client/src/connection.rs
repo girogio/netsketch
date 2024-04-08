@@ -1,60 +1,97 @@
 use std::io::Read;
 use std::{io::Write, net::TcpStream, sync::mpsc::Sender};
 
-use ns_core::errors::Result;
-use ns_core::models::canvas::CanvasEntry;
-use ns_core::models::packets::Packet;
+use ns_core::errors::{Error, Result};
+use ns_core::models::packets::TcpPacket;
 
-pub struct PacketHandler;
+use crate::models::canvas::CanvasCommand;
 
-impl PacketHandler {
+pub struct TcpPacketHandler;
+
+impl TcpPacketHandler {
     pub fn start(
         address: String,
         port: u16,
-        canvas_sender: Sender<CanvasEntry>,
-    ) -> Result<Sender<Packet>> {
-        let (tx, rx) = std::sync::mpsc::channel::<Packet>();
-        let mut stream = TcpStream::connect(format!("{}:{}", address, port)).unwrap();
+        canvas_sender: Sender<CanvasCommand>,
+    ) -> Result<Sender<TcpPacket>> {
+        // Connect to the server
+        let mut stream = TcpStream::connect(format!("{}:{}", address, port))?;
 
-        let mut cloned_stream = stream.try_clone().unwrap();
-        std::thread::spawn(move || loop {
-            match rx.recv() {
-                Ok(packet) => {
-                    let packet_bytes = packet.to_bytes();
-                    cloned_stream.write_all(&packet_bytes).unwrap();
-                }
-                Err(e) => {
-                    eprintln!("{e}");
-                    break;
+        // Create a channel to send packets to the server
+        let (tx, rx) = std::sync::mpsc::channel::<TcpPacket>();
+
+        // Spawn a thread to send packets to the server
+        let mut cloned_stream = stream.try_clone()?;
+        std::thread::spawn(move || -> Result<()> {
+            loop {
+                match rx.recv() {
+                    Ok(packet) => {
+                        let packet_bytes = packet.to_bytes();
+                        cloned_stream.write_all(&packet_bytes).unwrap();
+                        cloned_stream.flush()?
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                    }
                 }
             }
         });
 
+        // Spawn a thread to receive packets from the server
         std::thread::spawn(move || loop {
-            let mut buffer = [0u8; 4];
-            stream.read_exact(&mut buffer).unwrap();
-            let length = u32::from_le_bytes(buffer);
+            let mut task = || -> Result<()> {
+                let packet = read_packet(&mut stream)?;
 
-            let mut buffer = vec![0u8; length as usize];
-            stream.read_exact(&mut buffer).unwrap();
-
-            let packet = Packet::try_from_bytes(&buffer);
-
-            if let Ok(packet) = packet {
                 match packet {
-                    Packet::UpdatePeers(entry) => canvas_sender.send(entry).unwrap(),
-                    Packet::LoadCanvas(entries) => {
+                    TcpPacket::DrawResponse(entry) => {
+                        canvas_sender.send(CanvasCommand::Draw(entry)).unwrap();
+                    }
+                    TcpPacket::Notification(msg) => {
+                        std::io::stdout().flush()?;
+                        eprintln!("Notification: {}", msg);
+                    }
+                    TcpPacket::LoadCanvas(entries) => {
                         for entry in entries {
-                            canvas_sender.send(entry).unwrap();
+                            canvas_sender.send(CanvasCommand::Draw(entry)).unwrap();
                         }
                     }
-                    Packet::Disconnect => {}
-                    Packet::Connect(_) => {}
-                    Packet::Draw(_) => (),
+                    TcpPacket::Delete(id) => {
+                        canvas_sender.send(CanvasCommand::Delete(id)).unwrap();
+                    }
+                    TcpPacket::UpdateResponse(id, entry) => {
+                        canvas_sender
+                            .send(CanvasCommand::Overwrite(id, entry))
+                            .unwrap();
+                    }
+                    TcpPacket::ClearResponse { ids_to_delete } => {
+                        for id in ids_to_delete {
+                            canvas_sender.send(CanvasCommand::Delete(id)).unwrap();
+                        }
+                    }
+                    _ => {}
                 }
+
+                Ok(())
+            };
+
+            if let Err(Error::Io(e)) = task() {
+                eprintln!("Disconnected from server. Actual error: {}", e);
+                drop(stream);
+                std::process::exit(1);
             }
         });
 
         Ok(tx)
     }
+}
+
+fn read_packet(stream: &mut TcpStream) -> Result<TcpPacket> {
+    let mut length_header = [0u8; 4];
+    stream.read_exact(&mut length_header)?;
+    let length = u32::from_le_bytes(length_header);
+
+    let mut buffer = vec![0u8; length as usize];
+    stream.read_exact(&mut buffer)?;
+
+    TcpPacket::try_from_bytes(&buffer)
 }

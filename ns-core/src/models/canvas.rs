@@ -1,24 +1,46 @@
-use super::commands::CanvasElement;
+use std::net::SocketAddr;
 
 use bincode::{Decode, Encode};
-use macroquad::{
-    shapes::{draw_circle, draw_line, draw_rectangle},
-    text::draw_text,
-};
 
-#[derive(Debug, Encode, Decode, Clone)]
-pub struct CanvasAction {
-    pub element: CanvasElement,
-    pub user: String,
+/// The different types of elements that can be drawn on the canvas.
+#[derive(Encode, Decode, Debug, Clone)]
+pub enum CanvasElement {
+    Line {
+        x1: u16,
+        y1: u16,
+        x2: u16,
+        y2: u16,
+        colour: [u8; 4],
+    },
+    Circle {
+        x: u16,
+        y: u16,
+        radius: u16,
+        colour: [u8; 4],
+    },
+    Rect {
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        colour: [u8; 4],
+    },
+    Text {
+        x: u16,
+        y: u16,
+        text: String,
+        colour: [u8; 4],
+    },
 }
 
 #[derive(Debug, Encode, Decode, Clone)]
 pub struct CanvasEntry {
     pub id: usize,
-    pub action: CanvasAction,
+    pub element: CanvasElement,
+    pub author: String,
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone)]
 pub struct Canvas {
     pub actions: Vec<CanvasEntry>,
     pub current_action_id: usize,
@@ -37,74 +59,56 @@ impl Canvas {
     pub fn add_action(&mut self, user: String, element: &CanvasElement) -> CanvasEntry {
         let entry = CanvasEntry {
             id: self.current_action_id,
-            action: CanvasAction {
-                element: element.clone(),
-                user,
-            },
+            element: element.clone(),
+            author: user.clone(),
         };
         self.actions.push(entry.clone());
         self.current_action_id += 1;
         entry
     }
 
-    /// This function should only be called in the same thread where the canvas
-    /// provided by [`macroquad`] is being drawn.
-    pub fn draw_action(&self, entry: &CanvasEntry) {
-        match &entry.action.element {
-            CanvasElement::Line {
-                x1,
-                y1,
-                x2,
-                y2,
-                colour,
-            } => {
-                draw_line(
-                    *x1 as f32,
-                    *y1 as f32,
-                    *x2 as f32,
-                    *y2 as f32,
-                    5.,
-                    (*colour).into(),
-                );
-            }
-            CanvasElement::Circle {
-                x,
-                y,
-                radius,
-                colour,
-            } => {
-                draw_circle(*x as f32, *y as f32, *radius as f32, (*colour).into());
-            }
-            CanvasElement::Rect {
-                x,
-                y,
-                width,
-                height,
-                colour,
-            } => {
-                draw_rectangle(
-                    *x as f32,
-                    *y as f32,
-                    *width as f32,
-                    *height as f32,
-                    (*colour).into(),
-                );
-            }
-            CanvasElement::Text { x, y, text, colour } => {
-                draw_text(text, *x as f32, *y as f32, 50., (*colour).into());
-            }
+    pub fn get_entry(&self, id: usize) -> Option<&CanvasEntry> {
+        self.actions.iter().find(|entry| entry.id == id)
+    }
+
+    /// This function should only be called on the canvas by the server when a client updates
+    /// an existing entry on the canvas. This function should return `None` if the entry does not
+    /// exist.
+    pub fn update_entry(&mut self, id: usize, element: &CanvasElement) -> Option<CanvasEntry> {
+        let index = self.actions.iter().position(|x| x.id == id);
+
+        if let Some(index) = index {
+            let entry = CanvasEntry {
+                id,
+                element: element.clone(),
+                author: self.actions[index].author.clone(),
+            };
+            self.actions[index] = entry.clone();
+            Some(entry)
+        } else {
+            None
         }
     }
 
-    pub fn draw(&self) {
-        self.actions
-            .iter()
-            .for_each(|action| self.draw_action(action));
+    pub fn delete_entry(&mut self, id: usize) {
+        self.actions.retain(|entry| entry.id != id);
+    }
+
+    pub fn overwrite_entry(&mut self, id: usize, new_entry: CanvasEntry) {
+        if let Some(entry) = self.actions.iter_mut().find(|entry| entry.id == id) {
+            *entry = new_entry;
+        }
     }
 }
 
 impl Default for Canvas {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl std::fmt::Display for CanvasEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] by [{}], {:?}", self.id, self.author, self.element)
     }
 }

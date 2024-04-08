@@ -5,10 +5,12 @@ use std::{
 
 use ns_core::models::canvas::Canvas;
 
+use super::user_data::UserData;
+
 pub struct ServerState {
     pub canvas: Canvas,
     pub connections: Vec<TcpStream>,
-    pub users: HashMap<SocketAddr, String>,
+    pub users: HashMap<SocketAddr, UserData>,
 }
 
 impl ServerState {
@@ -22,7 +24,8 @@ impl ServerState {
 
     pub fn connect_user(&mut self, stream: &TcpStream, nickname: String) {
         self.connections.push(stream.try_clone().unwrap());
-        self.users.insert(stream.peer_addr().unwrap(), nickname);
+        self.users
+            .insert(stream.peer_addr().unwrap(), UserData::new(&nickname));
     }
 
     pub fn disconnect_user(&mut self, stream: &TcpStream) {
@@ -31,10 +34,18 @@ impl ServerState {
         self.users.remove(&stream.peer_addr().unwrap());
     }
 
+    pub fn get_user_data(&self, sock_addr: &SocketAddr) -> Option<&UserData> {
+        self.users.get(sock_addr)
+    }
+
     pub fn get_username(&self, stream: &TcpStream) -> String {
         self.users
             .get(&stream.peer_addr().unwrap())
-            .unwrap_or(&"Unknown".to_string())
+            .unwrap_or(&UserData {
+                name: "Unkown".to_string(),
+                action_history: vec![],
+            })
+            .name
             .clone()
     }
 }

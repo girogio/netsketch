@@ -164,16 +164,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
-name = "client"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "clap",
- "macroquad",
- "ns-core",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -323,6 +313,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1bcdd74c20ad5d95aacd60ef9ba40fdf77f767051040541df557b7a9b2a2121"
 
 [[package]]
+name = "netsketch"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "clap",
+ "macroquad",
+ "ns-core",
+]
+
+[[package]]
+name = "netsketch-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "macroquad",
+ "ns-core",
+]
+
+[[package]]
 name = "ns-core"
 version = "0.1.0"
 dependencies = [
@@ -410,16 +419,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "clap",
- "macroquad",
- "ns-core",
 ]
 
 [[package]]

@@ -1,26 +1,27 @@
 mod cli;
 mod connection;
-
-use std::sync::mpsc::{Receiver, Sender};
+mod models;
 
 use clap::Parser;
 use macroquad::{
     prelude::*,
     ui::{hash, root_ui, widgets::Window},
 };
-use ns_core::models::{
-    canvas::{Canvas, CanvasEntry},
-    packets::Packet,
+
+use crate::{
+    connection::TcpPacketHandler,
+    models::canvas::{CanvasCommand, ClientCanvas},
 };
 
-use crate::connection::PacketHandler;
+use ns_core::errors::Result;
+use ns_core::models::packets::TcpPacket;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[derive(Parser)]
+#[command(version, about, author)]
 struct Cli {
     #[clap(short, long)]
     /// The address of the netsketch server
-    server: String,
+    address: String,
     #[clap(short, long)]
     /// The port of the netsketch server
     port: u16,
@@ -30,75 +31,30 @@ struct Cli {
 }
 
 #[macroquad::main("NetSketch")]
-async fn main() {
+async fn main() -> Result<()> {
     prevent_quit();
 
     let args = Cli::parse();
 
-    let (canvas_sender, canvas_receiver) = std::sync::mpsc::channel::<CanvasEntry>();
+    let (canvas_sender, canvas_receiver) = std::sync::mpsc::channel::<CanvasCommand>();
 
-    let packet_sender = PacketHandler::start(args.server.to_string(), args.port, canvas_sender)
-        .expect("Failed to start packet handler");
+    let tcp_handler =
+        TcpPacketHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
 
-    println!("\n{}", "=".repeat(50));
-    println!("Connected to server at {}:{}", args.server, args.port);
-    println!("{}", "=".repeat(50));
+    tcp_handler
+        .send(TcpPacket::Connect(args.nickname.clone()))
+        .expect("Failed to connect to server.");
 
-    packet_sender.send(Packet::Connect(args.nickname)).unwrap();
+    println!("Connected to server at {}:{}", args.address, args.port,);
+    println!();
 
-    let tx_cloned = packet_sender.clone();
+    let tx_cloned = tcp_handler.clone();
 
-    std::thread::spawn(move || cli::handle_ns_prompt(tx_cloned));
+    std::thread::spawn(move || cli::handle_ns_prompt(tx_cloned, canvas_sender));
 
-    draw_game_canvas(packet_sender.clone(), canvas_receiver).await;
-}
-
-async fn draw_game_canvas(tx: Sender<Packet>, canvas_receiver: Receiver<CanvasEntry>) {
-    let mut show_exit_dialog = false;
-    let mut user_decided_to_exit = false;
-
-    let mut canvas = Canvas::new();
+    let mut canvas = ClientCanvas::new(args.nickname, canvas_receiver, tcp_handler);
 
     loop {
-        clear_background(LIGHTGRAY);
-
-        if is_quit_requested() || is_key_down(KeyCode::Escape) {
-            show_exit_dialog = true;
-        }
-
-        if show_exit_dialog {
-            draw_exit_dialog(&mut user_decided_to_exit, &mut show_exit_dialog);
-        }
-
-        if user_decided_to_exit {
-            tx.send(Packet::Disconnect).unwrap();
-            break;
-        }
-
-        while let Ok(command) = canvas_receiver.try_recv() {
-            canvas.actions.push(command.clone());
-        }
-
-        canvas.draw();
-
-        next_frame().await;
+        canvas.draw().await;
     }
-}
-
-fn draw_exit_dialog(user_decided_to_exit: &mut bool, show_exit_dialog: &mut bool) {
-    let dialog_size = vec2(200., 70.);
-    let screen_size = vec2(screen_width(), screen_height());
-    let dialog_position = screen_size / 2. - dialog_size / 2.;
-    Window::new(hash!(), dialog_position, dialog_size).ui(&mut root_ui(), |ui| {
-        ui.label(None, "Do you really want to quit?");
-        ui.separator();
-        ui.same_line(60.);
-        if ui.button(None, "Yes") {
-            *user_decided_to_exit = true;
-        }
-        ui.same_line(120.);
-        if ui.button(None, "No") {
-            *show_exit_dialog = false;
-        }
-    });
 }
