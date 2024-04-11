@@ -4,6 +4,7 @@ use std::{
 };
 
 use ns_core::models::canvas::Canvas;
+use tracing::warn;
 
 use super::user_data::UserData;
 
@@ -29,9 +30,11 @@ impl ServerState {
     }
 
     pub fn disconnect_user(&mut self, stream: &TcpStream) {
+        warn!("Disconnecting user: {:?}", stream.peer_addr().unwrap());
         self.connections
             .retain(|x| x.peer_addr().unwrap() != stream.peer_addr().unwrap());
         self.users.remove(&stream.peer_addr().unwrap());
+        stream.shutdown(std::net::Shutdown::Both).unwrap();
     }
 
     pub fn get_username(&self, stream: &TcpStream) -> String {
