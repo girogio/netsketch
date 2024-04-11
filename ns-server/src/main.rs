@@ -99,6 +99,17 @@ fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) -
                 server_state.connect_user(&stream, nickname);
                 let update_packet = TcpPacket::LoadCanvas(server_state.canvas.actions.clone());
                 let packet_bytes = update_packet.to_bytes();
+
+                let notification_packet =
+                    TcpPacket::Notification(format!("[+] {}", server_state.get_username(&stream),));
+
+                for connection in server_state.connections.iter_mut() {
+                    if connection.peer_addr()? != stream.peer_addr()? {
+                        connection.write_all(&notification_packet.to_bytes())?;
+                        connection.flush()?;
+                    }
+                }
+
                 stream.write_all(&packet_bytes)?;
                 stream.flush()?;
             }

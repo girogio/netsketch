@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-use crate::models::canvas::CanvasEntry;
-
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("IO error: {0}")]
@@ -12,8 +10,15 @@ pub enum Error {
     Bincode(#[from] bincode::error::DecodeError),
     #[error("IntParse error: {0}")]
     IntParse(#[from] std::num::ParseIntError),
-    #[error("MPSC error: {0}")]
-    Mpsc(#[from] std::sync::mpsc::SendError<CanvasEntry>),
+}
+
+impl<T> From<std::sync::mpsc::SendError<T>> for Error {
+    fn from(_: std::sync::mpsc::SendError<T>) -> Self {
+        Error::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "MPSC send error",
+        ))
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
