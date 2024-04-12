@@ -177,6 +177,26 @@ pub fn handle_ns_prompt(
 
             ["undo"] => packet_sender.send(TcpPacket::Undo).unwrap(),
 
+            ["help"] => {
+                println!("Commands:");
+                println!("draw <args> - Draw an element on the canvas");
+                println!("  if tool = line:        <x1> <y1> <x2> <y2> - Draw a line");
+                println!("  if tool = circle:      <x> <y> <radius> - Draw a circle");
+                println!("  if tool = rectangle:   <x> <y> <width> <height> - Draw a rectangle");
+                println!("  if tool = text:        <x> <y> <text> - Draw text");
+                println!("colour <r> <g> <b> <a> - Change the colour of the element");
+                println!("tool < line | circle | rectangle | text > - Change the tool");
+                println!("select < id > - Select an element by id");
+                println!("show < all | mine > - Show all elements or only your own");
+                println!("delete < id > - Delete an element by id");
+                println!(
+                    "list < all | line | rect | circle | text > < all | mine > - List elements"
+                );
+                println!("clear < all | mine > - Clear all elements or only your own");
+                println!("undo - Undo the last action");
+                println!("exit - Exit the program");
+            }
+
             ["exit"] => {
                 packet_sender.send(TcpPacket::Disconnect).unwrap();
                 drop(packet_sender);

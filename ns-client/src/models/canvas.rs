@@ -173,7 +173,6 @@ impl ClientCanvas {
         loop {
             clear_background(LIGHTGRAY);
 
-            // draw tool icon in the top right
             let tool_icon = match self.selected_tool {
                 ToolType::Line => "line",
                 ToolType::Circle => "circle",
@@ -181,12 +180,14 @@ impl ClientCanvas {
                 ToolType::Text => "Aa",
             };
 
+            // Draw all entries
             self.canvas
                 .actions
                 .iter()
                 .filter(|entry| entry.shown)
-                .for_each(|action| self.draw_action(action));
+                .for_each(|entry| self.draw_action(entry));
 
+            // Draw the tool icon
             draw_text(
                 tool_icon,
                 20.,
