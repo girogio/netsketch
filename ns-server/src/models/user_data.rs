@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use ns_core::models::canvas::CanvasEntry;
 
 #[derive(Clone)]
@@ -12,6 +14,7 @@ pub enum Action {
 pub struct UserData {
     pub name: String,
     pub action_history: Vec<Action>,
+    pub last_login: Option<Instant>,
 }
 
 impl UserData {
@@ -19,6 +22,7 @@ impl UserData {
         UserData {
             name: name.to_string(),
             action_history: vec![],
+            last_login: None,
         }
     }
 }

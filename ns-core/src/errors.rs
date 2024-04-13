@@ -10,6 +10,9 @@ pub enum Error {
     Bincode(#[from] bincode::error::DecodeError),
     #[error("IntParse error: {0}")]
     IntParse(#[from] std::num::ParseIntError),
+
+    #[error("Server error: {0}")]
+    Server(#[from] ServerError),
 }
 
 impl<T> From<std::sync::mpsc::SendError<T>> for Error {
@@ -19,6 +22,12 @@ impl<T> From<std::sync::mpsc::SendError<T>> for Error {
             "MPSC send error",
         ))
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ServerError {
+    #[error("User {} already connected", .0)]
+    UserAlreadyConnected(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
