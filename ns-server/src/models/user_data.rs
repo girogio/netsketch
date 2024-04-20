@@ -12,15 +12,15 @@ pub enum Action {
 
 #[derive(Clone)]
 pub struct UserData {
-    pub name: String,
+    pub username: String,
     pub action_history: Vec<Action>,
     pub last_login: Option<Instant>,
 }
 
 impl UserData {
-    pub fn new(name: &str) -> Self {
+    pub fn new(username: &str) -> Self {
         UserData {
-            name: name.to_string(),
+            username: username.to_string(),
             action_history: vec![],
             last_login: None,
         }

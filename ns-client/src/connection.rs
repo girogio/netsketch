@@ -54,12 +54,12 @@ impl TcpPacketHandler {
 
                     TcpPacket::LoadCanvas(entries) => {
                         for entry in entries {
-                            canvas_sender.send(CanvasCommand::Draw(entry)).unwrap();
+                            canvas_sender.send(CanvasCommand::Draw(entry))?;
                         }
                     }
 
                     TcpPacket::Delete(id) => {
-                        canvas_sender.send(CanvasCommand::Delete(id)).unwrap();
+                        canvas_sender.send(CanvasCommand::Delete(id))?;
                     }
 
                     TcpPacket::UpdateResponse(id, entry) => {
@@ -70,7 +70,7 @@ impl TcpPacketHandler {
 
                     TcpPacket::ClearResponse { ids_to_delete } => {
                         for id in ids_to_delete {
-                            canvas_sender.send(CanvasCommand::Delete(id)).unwrap();
+                            canvas_sender.send(CanvasCommand::Delete(id))?;
                         }
                     }
                     _ => {}

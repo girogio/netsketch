@@ -3,19 +3,19 @@ mod models;
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
+    process::exit,
     sync::{Arc, Mutex},
+    thread::spawn,
     time::Duration,
 };
 
 use clap::Parser;
-use models::{state::ServerState, user_data::Action};
+use models::{Action, ServerState, UserData};
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use ns_core::errors::{Result, ServerError};
 use ns_core::models::packets::TcpPacket;
-
-use crate::models::user_data::UserData;
 
 #[derive(Parser)]
 struct Args {
@@ -32,7 +32,7 @@ fn main() {
         Ok(server_state) => server_state,
         Err(e) => {
             error!("{e}", e = e);
-            std::process::exit(1);
+            exit(1);
         }
     };
 
@@ -42,7 +42,7 @@ fn main() {
         let server_state = server_state.clone();
         match stream {
             Ok(stream) => {
-                std::thread::spawn(move || {
+                spawn(move || {
                     if let Err(err) = handle_client(stream, server_state) {
                         error!("{err}");
                     }
@@ -73,7 +73,7 @@ fn init_server() -> Result<TcpListener> {
                 "Failed to bind the server to {}:{}\nReason: {}",
                 args.address, args.port, e
             );
-            std::process::exit(1);
+            exit(1);
         }
     };
 
@@ -125,7 +125,7 @@ fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) -
                     let new_entry_id = {
                         let new_entry = server_state
                             .canvas
-                            .add_action(user_data.name.clone(), &action);
+                            .add_action(user_data.username.clone(), &action);
 
                         // Send the update to all connected clients
                         let update_packet = TcpPacket::DrawResponse(new_entry.clone());
@@ -243,7 +243,7 @@ fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) -
 
                 TcpPacket::Disconnect => {
                     user_data.last_login = Some(std::time::Instant::now());
-                    server_state.disconnect_user(&stream);
+                    server_state.disconnect_user(&stream)?;
                     return Ok(());
                 }
 
@@ -262,7 +262,7 @@ fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) -
                         .actions
                         .iter_mut()
                         .filter_map(|entry| {
-                            if only_owned && entry.author != user_data.name {
+                            if only_owned && entry.author != user_data.username {
                                 return None;
                             }
                             Some(entry.id)
