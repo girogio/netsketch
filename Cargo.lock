@@ -339,7 +339,6 @@ name = "netsketch-server"
 version = "0.1.0"
 dependencies = [
  "clap",
- "macroquad",
  "ns-core",
  "tracing",
  "tracing-subscriber",

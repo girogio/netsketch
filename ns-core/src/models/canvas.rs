@@ -53,8 +53,6 @@ impl Canvas {
         }
     }
 
-    /// This function should only be called on the canvas by the server when a client draws
-    /// something on the canvas.
     pub fn add_action(&mut self, user: String, element: &CanvasElement) -> CanvasEntry {
         let entry = CanvasEntry {
             id: self.current_action_id,
@@ -71,9 +69,6 @@ impl Canvas {
         self.actions.iter().find(|entry| entry.id == id)
     }
 
-    /// This function should only be called on the canvas by the server when a client updates
-    /// an existing entry on the canvas. This function should return `None` if the entry does not
-    /// exist.
     pub fn update_entry(&mut self, id: usize, element: &CanvasElement) -> Option<CanvasEntry> {
         let index = self.actions.iter().position(|x| x.id == id);
 
