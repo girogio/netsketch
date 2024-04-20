@@ -21,13 +21,13 @@ impl ServerState {
         }
     }
 
-    pub fn connect_user(&mut self, stream: &TcpStream, nickname: String) -> Result<()> {
-        if self.sessions.iter().any(|x| x.username == nickname) {
-            error!("Username {} is already connected", nickname);
-            return Err(ServerError::UsernameTaken(nickname).into());
+    pub fn connect_user(&mut self, stream: &TcpStream, username: String) -> Result<()> {
+        if self.sessions.iter().any(|x| x.username == username) {
+            error!("Username {} is already connected", username);
+            return Err(ServerError::UsernameTaken(username).into());
         } else {
             self.sessions
-                .push(Session::new(stream.try_clone()?, nickname.clone()));
+                .push(Session::new(stream.try_clone()?, username.clone()));
         }
 
         Ok(())
