@@ -36,14 +36,7 @@ fn main() {
     for stream in server.incoming() {
         let server_state = server_state.clone();
         match stream {
-            Ok(stream) => {
-                spawn(move || match handle_client(stream, server_state) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("{e}", e = e);
-                    }
-                });
-            }
+            Ok(stream) => handle_client(stream, server_state),
             Err(e) => {
                 error!("{e}", e = e.kind());
             }
