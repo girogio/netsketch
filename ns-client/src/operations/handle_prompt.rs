@@ -6,7 +6,7 @@ use ns_core::models::{canvas::CanvasElement, packets::TcpPacket};
 use crate::models::canvas::CanvasCommand;
 use crate::models::enums::{Filter, Ownership, ToolType};
 
-pub fn handle_ns_prompt(
+pub fn handle_prompt(
     packet_sender: Sender<TcpPacket>,
     canvas_sender: Sender<CanvasCommand>,
 ) -> Result<()> {

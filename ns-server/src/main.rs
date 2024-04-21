@@ -5,8 +5,9 @@ use clap::Parser;
 use std::{
     process::exit,
     sync::{Arc, Mutex},
+    thread::{spawn},
 };
-use tracing::error;
+use tracing::{error};
 
 use models::ServerState;
 use operations::{handle_client, init_server};
@@ -35,7 +36,21 @@ fn main() {
     for stream in server.incoming() {
         let server_state = server_state.clone();
         match stream {
-            Ok(stream) => handle_client(stream, server_state),
+            Ok(stream) => {
+                spawn(move || loop {
+                    if handle_client(stream.try_clone().unwrap(), server_state.clone()).is_err() {
+                        match server_state.lock() {
+                            Ok(mut server_state) => {
+                                server_state.disconnect_user(&stream).unwrap();
+                                break;
+                            }
+                            Err(_) => {
+                                error!("Failed to lock server state");
+                            }
+                        }
+                    }
+                });
+            }
             Err(e) => {
                 error!("{e}", e = e.kind());
             }

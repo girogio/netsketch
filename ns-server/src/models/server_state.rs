@@ -34,7 +34,7 @@ impl ServerState {
     }
 
     pub fn disconnect_user(&mut self, stream: &TcpStream) -> Result<()> {
-        warn!("Disconnecting user: {:?}", stream.peer_addr()?);
+        warn!("Ending session belonging to {:?}", stream.peer_addr()?);
 
         self.sessions
             .retain(|x| x.stream.peer_addr().ok() != stream.peer_addr().ok());

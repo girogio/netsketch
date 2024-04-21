@@ -2,38 +2,17 @@ use std::{
     io::{Read, Write},
     net::TcpStream,
     sync::{Arc, Mutex},
-    thread::spawn,
     time::Duration,
 };
 
-use ns_core::errors::{Result, ServerError};
+use ns_core::errors::{Error, Result, ServerError};
 use ns_core::models::packets::TcpPacket;
 
 use tracing::{debug, error, info};
 
 use crate::models::{Action, ServerState, UserData};
 
-pub fn handle_client(stream: TcpStream, server_state: Arc<Mutex<ServerState>>) {
-    spawn(move || {
-        let mut server_state = match server_state.lock() {
-            Ok(server_state) => server_state,
-            Err(_) => {
-                error!("Failed to lock the server state");
-                return;
-            }
-        };
-
-        loop {
-            if let Err(e) = handle_client_inner(&mut server_state, stream.try_clone().unwrap()) {
-                debug!("Unexpected logout: {:?}", e);
-                server_state.disconnect_user(&stream).unwrap();
-                break;
-            }
-        }
-    });
-}
-
-fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) -> Result<()> {
+pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>>) -> Result<()> {
     // 10 minute timeout
     stream.set_read_timeout(Some(Duration::from_secs(600)))?;
 
@@ -50,6 +29,14 @@ fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) ->
     let packet = TcpPacket::try_from_bytes(&buffer)?;
 
     debug!("Received packet: {:?}", packet);
+
+    let mut server_state = match server_state.lock() {
+        Ok(server_state) => server_state,
+        Err(_) => {
+            error!("Failed to lock the server state");
+            return Ok(());
+        }
+    };
 
     let mut users = server_state.users.clone();
 
@@ -234,10 +221,15 @@ fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) ->
             _ => {}
         }
     } else if let TcpPacket::Connect(nickname) = packet {
+        if let Err(Error::Server(ServerError::UsernameTaken(s))) =
+            server_state.connect_user(&stream, nickname.clone())
+        {
+            error!("Username {} is already connected", s);
+            return Err(ServerError::UsernameTaken(s).into());
+        }
+
         let update_packet = TcpPacket::LoadCanvas(server_state.canvas.actions.clone());
         let packet_bytes = update_packet.to_bytes();
-
-        server_state.connect_user(&stream, nickname.clone())?;
 
         let notification_packet = TcpPacket::Notification(format!(
             "[+] {}",
@@ -287,5 +279,13 @@ fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) ->
 
     server_state.users = users;
 
+    // if let Err(e) = handle_client_inner(&mut server_state, stream.try_clone().unwrap()) {
+    //     debug!("Unexpected logout: {:?}", e);
+    //     server_state.disconnect_user(&stream).unwrap();
+    //     break;
+    // }
+
     Ok(())
 }
+
+// fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) -> Result<()>

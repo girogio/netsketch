@@ -1,15 +1,15 @@
-mod cli;
 mod connection;
 mod models;
+mod operations;
+
+use std::thread::spawn;
 
 use clap::Parser;
-use macroquad::{
-    prelude::*,
-};
 
 use crate::{
     connection::TcpPacketHandler,
     models::canvas::{CanvasCommand, ClientCanvas},
+    operations::handle_prompt,
 };
 
 use ns_core::errors::Result;
@@ -31,8 +31,6 @@ struct Cli {
 
 #[macroquad::main("NetSketch")]
 async fn main() -> Result<()> {
-    prevent_quit();
-
     let args = Cli::parse();
 
     let (canvas_sender, canvas_receiver) = std::sync::mpsc::channel::<CanvasCommand>();
@@ -40,16 +38,13 @@ async fn main() -> Result<()> {
     let tcp_handler =
         TcpPacketHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
 
-    tcp_handler
-        .send(TcpPacket::Connect(args.nickname.clone()))
-        .expect("Failed to connect to server.");
+    tcp_handler.send(TcpPacket::Connect(args.nickname.clone()))?;
 
-    println!("Connected to server at {}:{}", args.address, args.port,);
-    println!();
+    println!("Connected to server at {}:{}\n", args.address, args.port);
 
     let tx_cloned = tcp_handler.clone();
 
-    std::thread::spawn(move || cli::handle_ns_prompt(tx_cloned, canvas_sender));
+    spawn(move || handle_prompt(tx_cloned, canvas_sender));
 
     let mut canvas = ClientCanvas::new(args.nickname, canvas_receiver, tcp_handler);
 

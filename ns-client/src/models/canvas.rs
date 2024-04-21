@@ -2,7 +2,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use macroquad::{
     color::LIGHTGRAY,
-    input::{is_key_down, is_quit_requested, KeyCode},
+    input::{is_key_down, is_quit_requested, prevent_quit, KeyCode},
     math::vec2,
     shapes::{draw_circle, draw_line, draw_rectangle},
     text::draw_text,
@@ -170,6 +170,7 @@ impl ClientCanvas {
     /// This function should only be called in the same thread where the canvas
     /// provided by [`macroquad`] is being drawn.
     pub async fn draw(&mut self) {
+        prevent_quit();
         loop {
             clear_background(LIGHTGRAY);
 
