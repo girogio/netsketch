@@ -5,7 +5,6 @@ use clap::Parser;
 use std::{
     process::exit,
     sync::{Arc, Mutex},
-    thread::spawn,
 };
 use tracing::error;
 

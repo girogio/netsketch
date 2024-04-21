@@ -9,3 +9,7 @@ bincode = "=2.0.0-rc.3"
 thiserror = "1.0.58"
 macroquad = { version = "0.4.5" }
 clap = { version = "4.5.4", features = ["cargo", "derive"] }
+
+[profile.dev]
+incremental = true
+opt-level = 3
