@@ -1,13 +1,12 @@
 [workspace]
 resolver = "2"
 
-members = ["ns-server", "ns-client", "ns-core"]
+members = ["ns-server", "ns-client", "ns-core", "a"]
 
 
 [workspace.dependencies]
 bincode = "=2.0.0-rc.3"
 thiserror = "1.0.58"
-macroquad = { version = "0.4.5" }
 clap = { version = "4.5.4", features = ["cargo", "derive"] }
 
 [profile.dev]

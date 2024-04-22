@@ -5,9 +5,9 @@ use clap::Parser;
 use std::{
     process::exit,
     sync::{Arc, Mutex},
-    thread::{spawn},
+    thread::spawn,
 };
-use tracing::{error};
+use tracing::error;
 
 use models::ServerState;
 use operations::{handle_client, init_server};
@@ -41,7 +41,9 @@ fn main() {
                     if handle_client(stream.try_clone().unwrap(), server_state.clone()).is_err() {
                         match server_state.lock() {
                             Ok(mut server_state) => {
-                                server_state.disconnect_user(&stream).unwrap();
+                                if let Err(e) = server_state.disconnect_user(&stream) {
+                                    error!("Failed to disconnect: {e}");
+                                }
                                 break;
                             }
                             Err(_) => {

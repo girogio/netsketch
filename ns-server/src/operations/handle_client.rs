@@ -181,7 +181,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             TcpPacket::Disconnect => {
                 user_data.last_login = Some(std::time::Instant::now());
                 server_state.users = users;
-                server_state.disconnect_user(&stream)?;
+                // server_state.disconnect_user(&stream)?;
                 return Ok(());
             }
 

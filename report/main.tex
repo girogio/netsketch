@@ -1,0 +1,66 @@
+\documentclass{article}
+
+\usepackage{tikz}
+\usepackage{listings}
+
+\usepackage{lato}
+\renewcommand*\familydefault{\sfdefault}
+\newcommand{\code}[1]{\texttt{#1}}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Giorgio Grigolo}
+\lhead{Netsketch: A Collaborative Whiteboard}
+\rfoot{Page \thepage}
+
+
+\title{Netsketch: A Collaborative Whiteboard \\ { \Large Assignment Report} }
+\author{Giorgio Grigolo}
+\date{}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=blue,
+}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\newpage
+
+\section{Introduction}
+This implementation of Netsketch, a collaborative whiteboard, is built entirely in Rust, a statically typed, memory-safe, idiomatic, systems programming language.
+
+\subsection{Project Structure}
+Netsketch was divided into three main components: the \textit{server}, the \textit{client}, and a \textit{shared library}. The server is responsible for most of the business logic, such as managing the state of the whiteboard and broadcasting changes to all connected clients. The client is a graphical user interface that allows users to draw on the whiteboard and see the changes made by other users. The shared library contains the data structures and algorithms used by both the server and the client.
+
+To conform with the Rust ecosystem's conventions, the above components are manifested as a Rust workspace, with the server and the client as separate crates, and the shared library as a library crate, initialized by the \code{cargo init ----lib} command.
+
+\subsection{Libraries Used}
+A considerable effort has been made to use as few external libraries (or
+\textit{crates}) as possible. The only crates used are
+\begin{itemize}
+    \item \href{https://docs.rs/clap/latest/clap/}{\code{clap}} for the command-line interfaces of the server and the client,
+    \item \href{https://docs.rs/thiserror/latest/thiserror/}{thiserror} for better error handling,
+    \item \href{https://docs.rs/bincode/latest/bincode/}{\code{bincode}} for encoding and decoding data structures into and from bytes,
+    \item \href{https://docs.rs/macroquad/latest/macroquad/}{\code{macroquad}} for the client's graphical user interface, and
+    \item \href{https://docs.rs/tracing/latest/tracing/}{\code{tracing}} for server side logging.
+\end{itemize}
+All other functionality has been implemented from scratch, or was built using the standard library \href{https://doc.rust-lang.org/std/}{\code{std}}.
+
+
+\newpage
+
+\section{System Design}
+
+
+
+
+\end{document}

@@ -35,13 +35,24 @@ impl ServerState {
 
     pub fn disconnect_user(&mut self, stream: &TcpStream) -> Result<()> {
         warn!("Ending session belonging to {:?}", stream.peer_addr()?);
+        let peer_addr = match stream.peer_addr() {
+            Ok(addr) => addr,
+            Err(e) => {
+                error!("Failed to get peer address: {:?}", e);
+                return Err(ServerError::UserNotFound.into());
+            }
+        };
 
         self.sessions
-            .retain(|x| x.stream.peer_addr().ok() != stream.peer_addr().ok());
+            .retain(|x| x.stream.peer_addr().ok() != Some(peer_addr));
 
-        stream.shutdown(std::net::Shutdown::Both)?;
-
-        Ok(())
+        match stream.shutdown(std::net::Shutdown::Both) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                error!("Failed to shutdown stream: {:?}", e);
+                Err(ServerError::UserNotFound.into())
+            }
+        }
     }
 
     pub fn get_username(&self, stream: &TcpStream) -> Option<&String> {
