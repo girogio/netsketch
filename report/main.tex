@@ -27,7 +27,13 @@
     right=3.5mm,
     title={#1},
     toptitle=0.75mm,
-  }
+  },
+    sub/.style={
+        base={#1},
+        colframe=black!30!white,
+        top=-0.5mm,
+        bottom=-0.5mm,
+    },
 }
 
 \definecolor{brandblue}{rgb}{0.34, 0.7, 1}
@@ -38,7 +44,7 @@
 
 \newtcolorbox{subbox}[1]{
   colframe=black!30!white,
-  base={#1}
+  sub={#1}
 }
 
 \usepackage{lato}
@@ -68,7 +74,7 @@
     breaklines=true,
     basicstyle=\ttfamily,
     language=Rust,
-    xleftmargin=.2\textwidth, xrightmargin=.2\textwidth,
+    xleftmargin=.3\textwidth, xrightmargin=.3\textwidth,
     captionpos=b
 }
 
@@ -125,27 +131,27 @@ most of the heavy lifting.
 \subsection{Shared Library: \code{ns-core}}
 In this section, I will describe the main features of the core of Netsketch, the library that is used by both the client and the server. I will also attempt to shed some light on the most important data structures in this library.
 
-\subsubsection{The Whiteboard}
+\subsubsection{A blank slate - The Whiteboard}
 
-The central part of Netsketch is the whiteboard, or \textit{canvas}, as I will
+The central part of Netsketch is the interactive whiteboard, or \textit{canvas}, as I will
 refer to it from now on. It is defined as an array of \textit{canvas entries},
 and a monotonically increasing counter, to keep track of the order in which the
 actions were performed, as well as to serve as a current pointer to the last
 entry that was inserted into the canvas.
 
-\begin{center}
+\begin{subbox}{}
     \begin{lstlisting}
 struct Canvas {
     entries: Vec<CanvasEntry>,
     counter: usize,
 }
         \end{lstlisting}
-
-\end{center}
+\end{subbox}
 
 This brings us to introduce the \code{CanvasEntry}. The \code{CanvasEntry} stores the action's ID, the object drawn (the \code{CanvasElement}), the username of who drew it (the \code{author}), and a \code{shown} flag to be used by the client to determine whether the entry should be displayed or not.
 
-\begin{center}
+
+\begin{subbox}{}
     \begin{lstlisting}
 struct CanvasEntry {
     id: usize,
@@ -153,8 +159,8 @@ struct CanvasEntry {
     shown: bool,
     author: String,
 }
-    \end{lstlisting}
-\end{center}
+\end{lstlisting}
+\end{subbox}
 
 The \code{CanvasElement}, finally is just an enum that contains all the possible objects that can be drawn on the canvas, and the required information to draw them such as sets of coordinates, colour and so on. The objects supported are \code{Line}, \code{Rectangle}, \code{Circle}, and \code{Text}.
 
@@ -166,7 +172,7 @@ The \code{CanvasElement}, finally is just an enum that contains all the possible
 
 \newpage
 
-\subsubsection
+\subsubsection{Packets}
 
 
 
