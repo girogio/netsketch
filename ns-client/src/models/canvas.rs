@@ -61,19 +61,19 @@ impl ClientCanvas {
         match command.clone() {
             CanvasCommand::ShowAll => {
                 self.canvas
-                    .actions
+                    .entries
                     .iter_mut()
                     .for_each(|entry| entry.shown = true);
             }
 
             CanvasCommand::ShowMine => {
                 self.canvas
-                    .actions
+                    .entries
                     .iter_mut()
                     .for_each(|entry| entry.shown = entry.author == self.nickname);
             }
 
-            CanvasCommand::Draw(entry) => self.canvas.actions.push(entry),
+            CanvasCommand::Draw(entry) => self.canvas.entries.push(entry),
 
             CanvasCommand::Overwrite(id, new_entry) => {
                 if self.canvas.update_entry(id, &new_entry.element).is_none() {
@@ -83,7 +83,7 @@ impl ClientCanvas {
 
             CanvasCommand::List(filter) => {
                 self
-                    .canvas.actions
+                    .canvas.entries
                             .iter()
                             .filter(|entry| match filter.tool_type {
                                 Some(ToolType::Line) => {
@@ -183,7 +183,7 @@ impl ClientCanvas {
 
             // Draw all entries
             self.canvas
-                .actions
+                .entries
                 .iter()
                 .filter(|entry| entry.shown)
                 .for_each(|entry| self.draw_action(entry));

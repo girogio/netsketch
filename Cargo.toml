@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = ["ns-server", "ns-client", "ns-core", "a"]
+members = ["ns-server", "ns-client", "ns-core"]
 
 
 [workspace.dependencies]
-bincode = "=2.0.0-rc.3"
+bincode = { version = "=2.0.0-rc.3", features = ["std"] }
 thiserror = "1.0.58"
 clap = { version = "4.5.4", features = ["cargo", "derive"] }
 

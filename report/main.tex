@@ -1,7 +1,45 @@
 \documentclass{article}
 
 \usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{multicol}
 \usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{parskip}
+\usepackage{listings-rust}
+\usepackage[scale=0.9]{sourcecodepro}
+
+% a4 marigns
+\usepackage[a4paper, total={6in, 8in}]{geometry}
+
+
+\tcbset {
+  base/.style={
+    arc=0mm,
+    bottomtitle=0.5mm,
+    boxsep=1mm,
+    boxrule=0mm,
+    colbacktitle=black!10!white,
+    coltitle=black,
+    fonttitle=\bfseries,
+    left=2.5mm,
+    leftrule=1mm,
+    right=3.5mm,
+    title={#1},
+    toptitle=0.75mm,
+  }
+}
+
+\definecolor{brandblue}{rgb}{0.34, 0.7, 1}
+\newtcolorbox{mainbox}[1]{
+  colframe=brandblue,
+  base={#1}
+}
+
+\newtcolorbox{subbox}[1]{
+  colframe=black!30!white,
+  base={#1}
+}
 
 \usepackage{lato}
 \renewcommand*\familydefault{\sfdefault}
@@ -16,6 +54,23 @@
 \lhead{Netsketch: A Collaborative Whiteboard}
 \rfoot{Page \thepage}
 
+\definecolor{bluekeywords}{rgb}{0.13, 0.13, 1}
+\definecolor{greencomments}{rgb}{0, 0.5, 0}
+\definecolor{redstrings}{rgb}{0.9, 0, 0}
+\definecolor{graynumbers}{rgb}{0.5, 0.5, 0.5}
+
+
+\lstset{
+    commentstyle=\color{greencomments},
+    keywordstyle=\color{bluekeywords},
+    stringstyle=\color{redstrings},
+    numberstyle=\color{graynumbers},
+    breaklines=true,
+    basicstyle=\ttfamily,
+    language=Rust,
+    xleftmargin=.2\textwidth, xrightmargin=.2\textwidth,
+    captionpos=b
+}
 
 \title{Netsketch: A Collaborative Whiteboard \\ { \Large Assignment Report} }
 \author{Giorgio Grigolo}
@@ -41,7 +96,7 @@ This implementation of Netsketch, a collaborative whiteboard, is built entirely 
 \subsection{Project Structure}
 Netsketch was divided into three main components: the \textit{server}, the \textit{client}, and a \textit{shared library}. The server is responsible for most of the business logic, such as managing the state of the whiteboard and broadcasting changes to all connected clients. The client is a graphical user interface that allows users to draw on the whiteboard and see the changes made by other users. The shared library contains the data structures and algorithms used by both the server and the client.
 
-To conform with the Rust ecosystem's conventions, the above components are manifested as a Rust workspace, with the server and the client as separate crates, and the shared library as a library crate, initialized by the \code{cargo init ----lib} command.
+To conform with the Rust ecosystem's conventions, the above components are manifested as a Rust workspace, with the server and the client as separate crates, and the shared library as a library crate, initialized by the \code{cargo init {-}{-}lib} command.
 
 \subsection{Libraries Used}
 A considerable effort has been made to use as few external libraries (or
@@ -51,24 +106,67 @@ A considerable effort has been made to use as few external libraries (or
     \item \href{https://docs.rs/thiserror/latest/thiserror/}{thiserror} for better error handling,
     \item \href{https://docs.rs/bincode/latest/bincode/}{\code{bincode}} for encoding and decoding data structures into and from bytes,
     \item \href{https://docs.rs/macroquad/latest/macroquad/}{\code{macroquad}} for the client's graphical user interface, and
-    \item \href{https://docs.rs/tracing/latest/tracing/}{\code{tracing}} for server side logging.
+    \item \href{https://docs.rs/tracing/latest/tracing/}{\code{tracing}} for pretty server side logging.
 \end{itemize}
-All other functionality has been implemented from scratch, or was built using the standard library \href{https://doc.rust-lang.org/std/}{\code{std}}.
+All other functionality has been implemented from scratch, or by using the Rust standard library \href{https://doc.rust-lang.org/std/}{\code{std}}.
 
 
 \newpage
 
 \section{System Design}
-\subsection{Data Structures}
+It is clear, as specified, that this game is a client-server application. Upon
+reading the requirements of this project, it was immediately clear that most of
+the logic should take place on the server side, whereas the client, must be kept
+as simple as possible; it must send clear and concise instructions to the server.
+With this in mind, while planning the layout of this system, I concluded that
+I'd like to keep the client as light as possible, while letting the server doing
+most of the heavy lifting.
 
+\subsection{Shared Library: \code{ns-core}}
+In this section, I will describe the main features of the core of Netsketch, the library that is used by both the client and the server. I will also attempt to shed some light on the most important data structures in this library.
 
+\subsubsection{The Whiteboard}
 
+The central part of Netsketch is the whiteboard, or \textit{canvas}, as I will
+refer to it from now on. It is defined as an array of \textit{canvas entries},
+and a monotonically increasing counter, to keep track of the order in which the
+actions were performed, as well as to serve as a current pointer to the last
+entry that was inserted into the canvas.
 
+\begin{center}
+    \begin{lstlisting}
+struct Canvas {
+    entries: Vec<CanvasEntry>,
+    counter: usize,
+}
+        \end{lstlisting}
 
-\subsection{Shared Library}
+\end{center}
 
+This brings us to introduce the \code{CanvasEntry}. The \code{CanvasEntry} stores the action's ID, the object drawn (the \code{CanvasElement}), the username of who drew it (the \code{author}), and a \code{shown} flag to be used by the client to determine whether the entry should be displayed or not.
 
+\begin{center}
+    \begin{lstlisting}
+struct CanvasEntry {
+    id: usize,
+    element: CanvasElement,
+    shown: bool,
+    author: String,
+}
+    \end{lstlisting}
+\end{center}
 
+The \code{CanvasElement}, finally is just an enum that contains all the possible objects that can be drawn on the canvas, and the required information to draw them such as sets of coordinates, colour and so on. The objects supported are \code{Line}, \code{Rectangle}, \code{Circle}, and \code{Text}.
+
+\vspace{1em}
+
+\begin{mainbox}{Note}
+    The \code{Canvas} is further wrapped in another struct, which varies depending on the context in which it is used. In fact, the way it is mutated and accessed is different in the server and in the client. This will be discussed in the following sections.
+\end{mainbox}
+
+\newpage
+
+\subsubsection
 
 
 

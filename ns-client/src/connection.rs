@@ -26,7 +26,7 @@ impl TcpPacketHandler {
             loop {
                 match rx.recv() {
                     Ok(packet) => {
-                        let packet_bytes = packet.to_bytes();
+                        let packet_bytes = packet.to_bytes()?;
                         stream_ptr.as_ref().write_all(&packet_bytes)?;
                         stream_ptr.as_ref().flush()?
                     }

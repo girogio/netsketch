@@ -41,14 +41,14 @@ pub struct CanvasEntry {
 
 #[derive(Clone)]
 pub struct Canvas {
-    pub actions: Vec<CanvasEntry>,
+    pub entries: Vec<CanvasEntry>,
     pub current_action_id: usize,
 }
 
 impl Canvas {
     pub fn new() -> Self {
         Self {
-            actions: Vec::new(),
+            entries: Vec::new(),
             current_action_id: 0,
         }
     }
@@ -60,26 +60,26 @@ impl Canvas {
             element: element.clone(),
             author: user.clone(),
         };
-        self.actions.push(entry.clone());
+        self.entries.push(entry.clone());
         self.current_action_id += 1;
         entry
     }
 
     pub fn get_entry(&self, id: usize) -> Option<&CanvasEntry> {
-        self.actions.iter().find(|entry| entry.id == id)
+        self.entries.iter().find(|entry| entry.id == id)
     }
 
     pub fn update_entry(&mut self, id: usize, element: &CanvasElement) -> Option<CanvasEntry> {
-        let index = self.actions.iter().position(|x| x.id == id);
+        let index = self.entries.iter().position(|x| x.id == id);
 
         if let Some(index) = index {
             let entry = CanvasEntry {
                 id,
                 element: element.clone(),
-                shown: self.actions[index].shown,
-                author: self.actions[index].author.clone(),
+                shown: self.entries[index].shown,
+                author: self.entries[index].author.clone(),
             };
-            self.actions[index] = entry.clone();
+            self.entries[index] = entry.clone();
             Some(entry)
         } else {
             None
@@ -87,11 +87,11 @@ impl Canvas {
     }
 
     pub fn delete_entry(&mut self, id: usize) {
-        self.actions.retain(|entry| entry.id != id);
+        self.entries.retain(|entry| entry.id != id);
     }
 
     pub fn overwrite_entry(&mut self, id: usize, new_entry: CanvasEntry) {
-        if let Some(entry) = self.actions.iter_mut().find(|entry| entry.id == id) {
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == id) {
             *entry = new_entry;
         }
     }

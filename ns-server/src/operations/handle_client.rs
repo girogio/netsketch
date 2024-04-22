@@ -55,7 +55,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     // Send the update to all connected clients
                     let update_packet = TcpPacket::DrawResponse(new_entry.clone());
                     for connection in server_state.sessions.iter_mut() {
-                        let packet_bytes = update_packet.to_bytes();
+                        let packet_bytes = update_packet.to_bytes()?;
                         connection.stream.write_all(&packet_bytes)?;
                         connection.stream.flush()?;
                     }
@@ -84,7 +84,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     Some(entry) => {
                         let update_packet = TcpPacket::UpdateResponse(id, entry);
                         for connection in server_state.sessions.iter_mut() {
-                            let packet_bytes = update_packet.to_bytes();
+                            let packet_bytes = update_packet.to_bytes()?;
                             connection.stream.write_all(&packet_bytes)?;
                             connection.stream.flush()?;
                         }
@@ -98,7 +98,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     None => {
                         let notification_packet =
                             TcpPacket::Notification(format!("Entry with id {} does not exist", id));
-                        let packet_bytes = notification_packet.to_bytes();
+                        let packet_bytes = notification_packet.to_bytes()?;
                         stream.write_all(&packet_bytes)?;
                         stream.flush()?;
                     }
@@ -115,7 +115,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     server_state.canvas.delete_entry(id);
                     let update_packet = TcpPacket::Delete(id);
                     for connection in server_state.sessions.iter_mut() {
-                        let packet_bytes = update_packet.to_bytes();
+                        let packet_bytes = update_packet.to_bytes()?;
                         connection.stream.write_all(&packet_bytes)?;
                         connection.stream.flush()?;
                     }
@@ -131,10 +131,10 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     match last_action {
                         Action::Delete(entry) => {
                             // Recreate entry
-                            server_state.canvas.actions.push(entry.clone());
+                            server_state.canvas.entries.push(entry.clone());
                             let draw_packet = TcpPacket::DrawResponse(entry);
                             for connection in server_state.sessions.iter_mut() {
-                                let bytes = draw_packet.to_bytes();
+                                let bytes = draw_packet.to_bytes()?;
                                 connection.stream.write_all(&bytes)?;
                                 connection.stream.flush()?;
                             }
@@ -144,7 +144,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                             server_state.canvas.delete_entry(id);
                             let update_packet = TcpPacket::Delete(id);
                             for connection in server_state.sessions.iter_mut() {
-                                let packet_bytes = update_packet.to_bytes();
+                                let packet_bytes = update_packet.to_bytes()?;
                                 connection.stream.write_all(&packet_bytes)?;
                                 connection.stream.flush()?;
                             }
@@ -153,7 +153,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                             // Replace entry
                             let current_entry = server_state
                                 .canvas
-                                .actions
+                                .entries
                                 .iter_mut()
                                 .find(|entry| entry.id == previous_entry.id);
 
@@ -163,13 +163,13 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                         }
                         Action::Clear(prev_canvas_state) => {
                             //Replace the whole canvas
-                            let actions = prev_canvas_state.actions.clone();
+                            let actions = prev_canvas_state.entries.clone();
                             server_state.canvas = prev_canvas_state;
 
                             // Force all clients to full reload
                             for connection in server_state.sessions.iter_mut() {
                                 let update_packet = TcpPacket::LoadCanvas(actions.clone());
-                                let packet_bytes = update_packet.to_bytes();
+                                let packet_bytes = update_packet.to_bytes()?;
                                 connection.stream.write_all(&packet_bytes)?;
                                 connection.stream.flush()?;
                             }
@@ -197,7 +197,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                 // Decide which entries to delete
                 let ids_to_delete = server_state
                     .canvas
-                    .actions
+                    .entries
                     .iter_mut()
                     .filter_map(|entry| {
                         if only_owned && entry.author != user_data.username {
@@ -212,7 +212,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
 
                 // Update all the clients
                 for connection in server_state.sessions.iter_mut() {
-                    let packet_bytes = clear_packet.to_bytes();
+                    let packet_bytes = clear_packet.to_bytes()?;
                     connection.stream.write_all(&packet_bytes)?;
                     connection.stream.flush()?;
                 }
@@ -228,8 +228,8 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             return Err(ServerError::UsernameTaken(s).into());
         }
 
-        let update_packet = TcpPacket::LoadCanvas(server_state.canvas.actions.clone());
-        let packet_bytes = update_packet.to_bytes();
+        let update_packet = TcpPacket::LoadCanvas(server_state.canvas.entries.clone());
+        let packet_bytes = update_packet.to_bytes()?;
 
         let notification_packet = TcpPacket::Notification(format!(
             "[+] {}",
@@ -266,7 +266,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             if connection.stream.peer_addr()? != stream.peer_addr()? {
                 connection
                     .stream
-                    .write_all(&notification_packet.to_bytes())?;
+                    .write_all(&notification_packet.to_bytes()?)?;
                 connection.stream.flush()?;
             }
         }

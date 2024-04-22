@@ -6,8 +6,10 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("Network error: {0}")]
     Network(#[from] std::net::AddrParseError),
-    #[error("Bincode error: {0}")]
-    Bincode(#[from] bincode::error::DecodeError),
+    #[error("Decode error: {0}")]
+    DecodeError(#[from] bincode::error::DecodeError),
+    #[error("Encode error: {0}")]
+    EncodeError(#[from] bincode::error::EncodeError),
     #[error("IntParse error: {0}")]
     IntParse(#[from] std::num::ParseIntError),
     #[error("Server error: {:?}", .0)]
