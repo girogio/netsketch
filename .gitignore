@@ -1,2 +1,24 @@
 **/target
 **/assets
+
+# latex
+**/*.aux
+**/*.bbl
+**/*.blg
+**/*.idx
+**/*.log
+**/*.out
+**/*.toc
+**/*.synctex.gz
+**/*.pdf
+**/*.ptc
+**/*.fls
+**/*.fdb_latexmk
+**/*.run.xml
+**/*.bcf
+
+**/*.toc
+**/*.listing
+**/*.dvi
+**/*.synctex
+**/*.synctex
