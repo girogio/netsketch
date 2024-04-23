@@ -118,7 +118,7 @@ A considerable effort has been made to use as few external libraries (or
 All other functionality has been implemented from scratch, or by using the Rust standard library \href{https://doc.rust-lang.org/std/}{\code{std}}.
 
 
-\newpage
+% \newpage
 
 \section{System Design}
 It is clear, as specified, that this game is a client-server application. Upon
@@ -132,7 +132,16 @@ most of the heavy lifting.
 \subsection{Shared Library: \code{ns-core}}
 In this section, I will describe the main features of the core of Netsketch, the library that is used by both the client and the server. I will also attempt to shed some light on the most important data structures in this library.
 
-\subsubsection{A blank slate - The Whiteboard}
+\subsubsection{Don't panic: \code{Error}}
+
+One of the undesirable outcomes during the lifetime of a Rust program is the
+\code{Panic}, more commonly known as crashing. To avoid this, I slightly
+modified the common Rust concept of a \code{Result<T, E>}, where \code{T} is some Type, and \code{E} is some Error type.
+
+In the shared library, with the help of \code{thiserror} crate, I renamed the default \code{Result} type, essentialy forcing the \code{Error} to be our own custom \code{ns\_core::Error}, and avoid filling it in everytime. The advantage of this is that we can define \textit{sub errors}, in an attempt to categorize them under the situation where they may be thrown. Most notably, we have at least an entry for each error returned by the crates we're using, as we want our \code{Result} type to understand as many errors we can, even if the \code{From} trait must be implemented manually. All this is to use the \code{?} notation instead of using too many \code{.unwrap()}s.
+
+
+\subsubsection{A blank slate: \code{Canvas}}
 
 The central part of Netsketch is the interactive whiteboard, or \textit{canvas}, as I will
 refer to it from now on. It is defined as an array of \textit{canvas entries},
@@ -149,7 +158,7 @@ struct Canvas {
         \end{lstlisting}
 \end{subbox}
 
-This brings us to introduce the \code{CanvasEntry}. The \code{CanvasEntry} stores the action's ID, the object drawn (the \code{CanvasElement}), the username of who drew it (the \code{author}), and a \code{shown} flag to be used by the client to determine whether the entry should be displayed or not.
+This calls the introduction of the \code{CanvasEntry}. The \code{CanvasEntry} stores the action's ID, the object drawn (the \code{CanvasElement}), the username of who drew it (the \code{author}), and a \code{shown} flag to be used by the client to determine whether the entry should be displayed or not.
 
 
 \begin{subbox}{}
@@ -173,7 +182,7 @@ The \code{CanvasElement}, finally is just an enum that contains all the possible
 
 \newpage
 
-\subsubsection{A way of communicating - \code{TcpPackets}}
+\subsubsection{First signs of communication: \code{TcpPackets}}
 Whilst planning how I'm going to transfer data between the client and the
 server, I remembered I'm using Rust, which boasts an incredible type system. Indeed, enums in Rust are quite flexible, in the sense that one can define any arbitrary struct within the same enum entry. The \code{TcpPacket} system I implemented makes heavy use of this. At the network level, the packet structure is quite simple, as can be seen in figure \ref{fig:fig1}.
 
@@ -185,7 +194,7 @@ In this way, we can make use of \code{read\_exact(\&mut [u8])}, a wrapper over t
 
 \begin{figure}[h]
     \centering
-    \begin{bytefield}[bitwidth=4em]{4}
+    \begin{bytefield}[bitwidth=3em]{4}
         \bitheader{0-3}\\
         \wordbox{1}{Payload Length} \\
         \wordbox{2}{Payload}
@@ -194,14 +203,14 @@ In this way, we can make use of \code{read\_exact(\&mut [u8])}, a wrapper over t
     \label{fig:fig1}
 \end{figure}
 
-Over the wire, any element of the \code{TcpPacket} enum is sent as bits, or more conveniently placed in a \code{Vec<u8>}, a vector of bytes. How do we decide the order in which to place the bytes of the data contained in each \code{TcpPacket} entry? Since we already noted that enums are quite flexible, in fact, completely arbitrary, it makes the contents quite unpredictable.
+Over the wire, any element of the \code{TcpPacket} enum is sent as bits, or more conveniently as a \code{Vec<u8>}, byte-array. How do we decide the order in which to place the bytes of the data contained in each \code{TcpPacket} entry? Since we already noted that enums are quite flexible, in fact, completely arbitrary, it makes the contents quite unpredictable.
 
 Fortunately, using some meta-programming (or Rust procedural macros) we are able
 to uniquely encode structs into bits, given a translation table, or
 mathematically speaking, a bijective function that recursively maps the types of
 the members of the struct to the memory layout of the struct itself.
 
-As per the bincode encoding
+As per the \code{bincode}
 \href{https://github.com/bincode-org/bincode/blob/trunk/docs/spec.md}{specification},
 we note that by default, all structures are encoded in little-endian, with
 various patterns for each data type. For example enums are encoded with their
@@ -227,10 +236,9 @@ us to use the \code{bincode::encode\_to\_vec} on the \code{Packet} on the
 sender's side, and \code{bincode::decode\_from\_slice} on the receiving end,
 whilst casting the decode function call to the \code{Packet} enum. This is
 because \code{bincode} is just receiving bytes: it is not aware how they are to
-be arranged, until we give it this \textit{hint}. Sinc we are allowed to cast
+be arranged, until we give it a type hint. Due to the fact that we are allowed to cast
 any bytes to any struct, this process might fail, which is why the
 \code{try\_from\_bytes} function implemented for a \code{Packet} returns a \code{Result}.
-
 
 {
 \lstset{xleftmargin=0\textwidth, xrightmargin=0\textwidth}
@@ -246,5 +254,21 @@ pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
 }
 
 \newpage
+
+\subsection{The Server: \code{ns-server}}
+
+During the initial brainstorming sessions, it was clear to me that whenever a
+client drew on the canvas, sending the entire data structure to everyone over
+and over again was going to be quite inefficient. In this section, I will
+outline the main execution flow of the server, how it handles incoming packets,
+and most importantly, how it concurrently manages its state safely, amongst all
+clients.
+
+Thankfully, it was an early stage where I made the foundational design decision
+whereby only the updates to the canvas had to be propagated to the clients'
+canvases. It was also apparent that I had to implement a cached version of the
+canvas for the client, as well as an \textit{update receiver} to keep the canvas
+as up to date as possible. We shall talk about the client-specific
+implementations in a subsequent section.
 
 \end{document}

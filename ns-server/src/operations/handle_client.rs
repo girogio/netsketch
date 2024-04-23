@@ -221,7 +221,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             _ => {}
         }
     } else if let TcpPacket::Connect(nickname) = packet {
-        if let Err(Error::Server(ServerError::UsernameTaken(s))) =
+        if let Err(Error::ServerError(ServerError::UsernameTaken(s))) =
             server_state.connect_user(&stream, nickname.clone())
         {
             error!("Username {} is already connected", s);

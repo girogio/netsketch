@@ -1,28 +1,21 @@
 use thiserror::Error;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    IoError(#[from] std::io::Error),
     #[error("Network error: {0}")]
-    Network(#[from] std::net::AddrParseError),
+    AddrParseError(#[from] std::net::AddrParseError),
     #[error("Decode error: {0}")]
     DecodeError(#[from] bincode::error::DecodeError),
     #[error("Encode error: {0}")]
     EncodeError(#[from] bincode::error::EncodeError),
     #[error("IntParse error: {0}")]
-    IntParse(#[from] std::num::ParseIntError),
+    IntParseError(#[from] std::num::ParseIntError),
     #[error("Server error: {:?}", .0)]
-    Server(#[from] ServerError),
-}
-
-impl<T> From<std::sync::mpsc::SendError<T>> for Error {
-    fn from(_: std::sync::mpsc::SendError<T>) -> Self {
-        Error::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "MPSC send error",
-        ))
-    }
+    ServerError(#[from] ServerError),
 }
 
 #[derive(Debug, Error)]
@@ -44,4 +37,11 @@ impl std::fmt::Display for ServerError {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+impl<T> From<std::sync::mpsc::SendError<T>> for Error {
+    fn from(_: std::sync::mpsc::SendError<T>) -> Self {
+        Error::IoError(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "MPSC send error",
+        ))
+    }
+}

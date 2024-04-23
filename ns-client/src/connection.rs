@@ -79,7 +79,7 @@ impl TcpPacketHandler {
                 Ok(())
             };
 
-            if let Err(Error::Io(e)) = task() {
+            if let Err(Error::IoError(e)) = task() {
                 eprintln!("Disconnected from server. Actual error: {}", e);
                 drop(stream);
                 std::process::exit(1);
