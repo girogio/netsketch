@@ -8,6 +8,7 @@
 \usepackage{parskip}
 \usepackage{listings-rust}
 \usepackage[scale=0.9]{sourcecodepro}
+\usepackage{bytefield}
 
 % a4 marigns
 \usepackage[a4paper, total={6in, 8in}]{geometry}
@@ -71,7 +72,7 @@
     keywordstyle=\color{bluekeywords},
     stringstyle=\color{redstrings},
     numberstyle=\color{graynumbers},
-    breaklines=true,
+    % breaklines=true,
     basicstyle=\ttfamily,
     language=Rust,
     xleftmargin=.3\textwidth, xrightmargin=.3\textwidth,
@@ -172,8 +173,78 @@ The \code{CanvasElement}, finally is just an enum that contains all the possible
 
 \newpage
 
-\subsubsection{Packets}
+\subsubsection{A way of communicating - \code{TcpPackets}}
+Whilst planning how I'm going to transfer data between the client and the
+server, I remembered I'm using Rust, which boasts an incredible type system. Indeed, enums in Rust are quite flexible, in the sense that one can define any arbitrary struct within the same enum entry. The \code{TcpPacket} system I implemented makes heavy use of this. At the network level, the packet structure is quite simple, as can be seen in figure \ref{fig:fig1}.
+
+By splitting a packet in two main sections, we are able to exactly determine how
+many bytes to read from the stream provided by a TCP socket, and therefore also
+the size of the buffers which will be populated with the data.
+
+In this way, we can make use of \code{read\_exact(\&mut [u8])}, a wrapper over the \code{read} system call, which keeps on reading from the stream until the mutable slice whose reference we pass to the function is full.
+
+\begin{figure}[h]
+    \centering
+    \begin{bytefield}[bitwidth=4em]{4}
+        \bitheader{0-3}\\
+        \wordbox{1}{Payload Length} \\
+        \wordbox{2}{Payload}
+    \end{bytefield}
+    \caption{TCP Packet Datagram}
+    \label{fig:fig1}
+\end{figure}
+
+Over the wire, any element of the \code{TcpPacket} enum is sent as bits, or more conveniently placed in a \code{Vec<u8>}, a vector of bytes. How do we decide the order in which to place the bytes of the data contained in each \code{TcpPacket} entry? Since we already noted that enums are quite flexible, in fact, completely arbitrary, it makes the contents quite unpredictable.
+
+Fortunately, using some meta-programming (or Rust procedural macros) we are able
+to uniquely encode structs into bits, given a translation table, or
+mathematically speaking, a bijective function that recursively maps the types of
+the members of the struct to the memory layout of the struct itself.
+
+As per the bincode encoding
+\href{https://github.com/bincode-org/bincode/blob/trunk/docs/spec.md}{specification},
+we note that by default, all structures are encoded in little-endian, with
+various patterns for each data type. For example enums are encoded with their
+variant first, followed by optionally the variant fields. The variant index is
+based on the \code{IntEncoding} during serialization. For the
+\code{IntEncoding}, by default, \code{bincode} uses a variable integer encoding
+which means that the size of the integer is not fixed, but rather depends on the
+value of the integer itself.
+
+% \begin{enumerate}
+%     \item If $u < 251$, encode it as a single byte with that value.
+%     \item If $251 \leq u < 2^{16}$, encode it as a literal byte 251, followed by a u16 with value $u$.
+%     \item If $2^{16} \leq u < 2^{32}$, encode it as a literal byte 252, followed by a u32 with value $u$.
+%     \item If $2^{32} \leq u < 2^{64}$, encode it as a literal byte 253, followed by a u64 with value $u$.
+%     \item If $2^{64} \leq u < 2^{128}$, encode it as a literal byte 254, followed by a u128 with value $u$.
+% \end{enumerate}
+
+% \texttt{usize} is being encoded/decoded as a \texttt{u64} and \texttt{isize} is being encoded/decoded as a \texttt{i64}.
+
+All the rest is abstracted out in the \code{Encode} and \code{Decode} derive
+macros respectively, which when applied to our \code{Packet} struct, they allow
+us to use the \code{bincode::encode\_to\_vec} on the \code{Packet} on the
+sender's side, and \code{bincode::decode\_from\_slice} on the receiving end,
+whilst casting the decode function call to the \code{Packet} enum. This is
+because \code{bincode} is just receiving bytes: it is not aware how they are to
+be arranged, until we give it this \textit{hint}. Sinc we are allowed to cast
+any bytes to any struct, this process might fail, which is why the
+\code{try\_from\_bytes} function implemented for a \code{Packet} returns a \code{Result}.
 
 
+{
+\lstset{xleftmargin=0\textwidth, xrightmargin=0\textwidth}
+\begin{subbox}{}
+    \begin{lstlisting}[language=Rust]
+impl Packet { ...
+pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
+    Ok(bincode::decode_from_slice(bytes, config::standard())?.0)
+}
+... }
+\end{lstlisting}
+\end{subbox}
+}
+
+\newpage
 
 \end{document}
