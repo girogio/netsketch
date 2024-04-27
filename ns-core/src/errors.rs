@@ -22,6 +22,7 @@ pub enum Error {
 pub enum ServerError {
     UsernameTaken(String),
     UserNotFound,
+    LockError,
 }
 
 impl std::fmt::Display for ServerError {
@@ -32,6 +33,9 @@ impl std::fmt::Display for ServerError {
             }
             ServerError::UserNotFound => {
                 write!(f, "User not found")
+            }
+            ServerError::LockError => {
+                write!(f, "Failed to lock server state")
             }
         }
     }

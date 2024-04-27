@@ -268,13 +268,67 @@ Thankfully, it was an early stage where I made the foundational design decision
 whereby only the updates to the canvas had to be propagated to the clients'
 canvases. It was also apparent that I had to implement a cached version of the
 canvas for the client, as well as an \textit{update receiver} to keep the canvas
-as up to date as possible. We shall talk about the client-specific
-implementations in a subsequent section.
+up to date. We shall talk about the client-specific implementations in a
+subsequent section.
 
 
 \subsubsection{Shared state: \code{Arc<Mutex<T>{>}}}
 
-When handling incoming connections, two problems arise,
+When handling incoming connections, the sever spawns a new thread for each
+connection. This is done to avoid blocking the main thread, and to allow the
+server to handle multiple clients concurrently. However, at least in Rust, it is
+not possible to share mutable data between threads without some form of
+synchronization and a method to allow us to share value ownership.  The
+\code{Arc<Mutex<T>>} pattern is a common way to achieve this.
+
+The \code{Arc} is an \textit{atomically reference-counted pointer}, which allows
+us to safely share the ownership of a value across multiple threads.When cloning
+an \code{Arc} an new instance that points to the same heap allocation as the
+original Arc is created, whilst incrementing the reference count. Finally, when the last
+Arc pointer to a specific allocation is disposed of, the value in that
+allocation is also dropped.
+
+\begin{mainbox}{Note}
+    \code{Arc} does not ensure thread safety by itself, it only protects against
+    race conditions when sharing ownership. An example of this is when a thread
+    tries to clone an \code{Arc} while another thread is dropping it.
+\end{mainbox}
+
+However, in Rust, shared references prohibit mutation by default, and since
+\code{Arc} is a shared reference, we need to further wrap our inner data
+structure in a \code{Mutex} to allow for mutation, particularly amongst multiple
+threads. The \code{Mutex} is a mutual exclusion primitive provided by the Rust
+standard library, which allows us to lock and unlock the canvas, ensuring that
+only one thread can access and modify it at a time.
+
+In essence, we are putting clients into a metaphorical queue, where they are
+allowed to access the canvas one by one, and only when they are done, the next
+client in the queue is allowed to access the canvas. This, inevitably introduces
+some latency, as well as an inferred order in which the operations on the canvas
+are performed.
+
+\begin{subbox}{}
+    \lstset{xleftmargin=0\textwidth, xrightmargin=0\textwidth}
+    \begin{lstlisting}[language=Rust]
+let mut server_state = match server_state.lock() {
+        Ok(server_state) => server_state,
+        Err(_) => return Err(ServerError::LockError.into()),
+};
+    \end{lstlisting}
+\end{subbox}
+
+The code snippet above demonstrates the \code{handle\_client} function. It spawns a
+thread for client-requested operations, secures the canvas, or errors if the
+lock fails.  This ensures thread safety and mutual exclusivity, for the server's
+the critical section - canvas mutation. Fortunately, Rust unlocks the mutex
+automatically when the scope of the lock ends, which is quite convenient.
+
+\newpage
+
+
+
+
+
 
 
 

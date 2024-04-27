@@ -32,10 +32,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
 
     let mut server_state = match server_state.lock() {
         Ok(server_state) => server_state,
-        Err(_) => {
-            error!("Failed to lock the server state");
-            return Ok(());
-        }
+        Err(_) => return Err(ServerError::LockError.into()),
     };
 
     let mut users = server_state.users.clone();
