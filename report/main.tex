@@ -141,6 +141,7 @@ modified the common Rust concept of a \code{Result<T, E>}, where \code{T} is som
 In the shared library, with the help of \code{thiserror} crate, I renamed the default \code{Result} type, essentialy forcing the \code{Error} to be our own custom \code{ns\_core::Error}, and avoid filling it in everytime. The advantage of this is that we can define \textit{sub errors}, in an attempt to categorize them under the situation where they may be thrown. Most notably, we have at least an entry for each error returned by the crates we're using, as we want our \code{Result} type to understand as many errors we can, even if the \code{From} trait must be implemented manually. All this is to use the \code{?} notation instead of using too many \code{.unwrap()}s.
 
 
+\label{sec:canvas}
 \subsubsection{A blank slate: \code{Canvas}}
 
 The central part of Netsketch is the interactive whiteboard, or \textit{canvas}, as I will
@@ -245,7 +246,7 @@ any bytes to any struct, this process might fail, which is why the
 \begin{subbox}{}
     \begin{lstlisting}[language=Rust]
 impl Packet { ...
-pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
+fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
     Ok(bincode::decode_from_slice(bytes, config::standard())?.0)
 }
 ... }
@@ -272,7 +273,7 @@ up to date. We shall talk about the client-specific implementations in a
 subsequent section.
 
 
-\subsubsection{Shared state: \code{Arc<Mutex<T>{>}}}
+\subsubsection{Sharing is caring: \code{Arc<Mutex<T>{>}}}
 
 When handling incoming connections, the sever spawns a new thread for each
 connection. This is done to avoid blocking the main thread, and to allow the
@@ -320,19 +321,98 @@ let mut server_state = match server_state.lock() {
 The code snippet above demonstrates the \code{handle\_client} function. It spawns a
 thread for client-requested operations, secures the canvas, or errors if the
 lock fails.  This ensures thread safety and mutual exclusivity, for the server's
-the critical section - canvas mutation. Fortunately, Rust unlocks the mutex
-automatically when the scope of the lock ends, which is quite convenient.
+the critical section - canvas mutation. Conveniently, Rust unlocks the mutex
+automatically when the scope of the lock ends.
+
+\label{sec:serverstate}
+\subsubsection{What we are sharing: \code{ServerState}}
+
+Now that we know how the server state is passed \textit{safely} to a thread, we
+can observe what it is storing, and most importantly why. In this section, we
+will discuss the \code{ServerState} struct, which is the main data structure
+that the server uses to manage the state of the whiteboard, as well as the
+clients connected to it.
+
+\begin{subbox}{}
+    \lstset{xleftmargin=0.2\textwidth, xrightmargin=0.2\textwidth}
+    \begin{lstlisting}[language=Rust]
+struct ServerState {
+    canvas: Canvas,
+    sessions: Vec<Session>,
+    users: HashMap<String, UserData>,
+}
+    \end{lstlisting}
+\end{subbox}
+
+The \code{ServerState} struct contains the canvas (see Section
+\ref{sec:canvas}), a list of sessions, and a map of usernames to the
+respective user data.
+
+\begin{subbox}{}
+    \lstset{xleftmargin=0.2\textwidth, xrightmargin=0.2\textwidth}
+    \begin{lstlisting}[language=Rust]
+ struct Session {
+     username: String,
+     stream: TcpStream,
+}
+    \end{lstlisting}
+\end{subbox}
+
+The \code{Session} struct contains two fields: the \code{username} of the client
+and the \code{TCPStream} that the client is connected to. The
+\code{std::net::TCPStream}s found in this list of sessions are what the server
+uses to broadcast canvas updates to the clients.
+
+\begin{subbox}{}
+    \lstset{xleftmargin=0.2\textwidth, xrightmargin=0.2\textwidth}
+    \begin{lstlisting}[language=Rust]
+struct UserData {
+        username: String,
+        action_history: Vec<Action>,
+        last_login: Option<Instant>,
+    }
+\end{lstlisting}
+\end{subbox}
+
+The \code{UserData} struct contains the client's username, their \code{Action}
+history (for the \textit{undo} logic) and the last login time, which is used to
+determine when the server should adopt the client's action history. I have
+augmented the \textit{draw list} as found in the assignment specification to an
+action history, which includes not just a series of \code{Draw} commands, but
+also \code{Delete}, \code{Clear} and \code{Update} commands.
 
 \newpage
 
+\subsubsection{The main \textit{(for)} loop}
 
-% TODO: Write about what we are storing in the server state, and how we're using it... Sessions and peer addresses etc, now that we know how it's handled
+With all the data structures in place, we can now discuss the main execution
+flow of the server.
 
+Firstly, we call \code{init\_server}, which does the following:
+\begin{itemize}
+    \item Starts a subscriber for tracing events, which is used for logging.
+    \item Binds the server to the specified address.
+    \item Returns the TCP listener, which is used to accept incoming connections.
+\end{itemize}
 
+Secondly, we initialize the server state, as previously described (see Section \ref{sec:serverstate}).
 
+Finally, we enter the main \textit{for} loop, where we iterate over
+\code{tcp\_listener.incoming()}, which as the Rust documentation states, is
+equivalent to calling \code{TcpListener::accept} in a loop. This \code{accept}
+method, is the same as the \code{accept} system call found in
+\code{sys/socket.h} in C, which blocks until a new connection is made to the
+server.
 
+For this reason, we spawn a new thread for each incoming connection, inside
+which we loop indefinitely whilst running the \code{handle\_client} function,
+which is responsible for handling the client's requests. If for any reason, the
+\code{handle\_client} function returns an error, the server will log the error
+disconnect the user (by removing the session) and continue to the next iteration
+of the loop.
 
-
+To completely unravel the server's execution flow, all that is left is to
+implement the \code{handle\_client} function.
 
 
 \end{document}

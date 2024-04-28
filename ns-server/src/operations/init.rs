@@ -6,8 +6,6 @@ use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 pub fn init_server(args: Args) -> Result<TcpListener> {
-    // let args = Args::parse();
-
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .finish();

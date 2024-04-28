@@ -23,17 +23,17 @@ struct Args {
 }
 
 fn main() {
-    let server = match init_server(Args::parse()) {
+    let tcp_listener = match init_server(Args::parse()) {
         Ok(server_state) => server_state,
         Err(e) => {
-            error!("{e}", e = e);
+            error!("{e}");
             exit(1);
         }
     };
 
     let server_state = Arc::new(Mutex::new(ServerState::new()));
 
-    for stream in server.incoming() {
+    for stream in tcp_listener.incoming() {
         let server_state = server_state.clone();
         match stream {
             Ok(stream) => {
