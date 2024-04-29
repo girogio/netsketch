@@ -48,6 +48,12 @@
   sub={#1}
 }
 
+% warning box
+\newtcolorbox{warningbox}[1]{
+  colframe=red,
+  base={#1}
+}
+
 \usepackage{lato}
 \renewcommand*\familydefault{\sfdefault}
 \newcommand{\code}[1]{\texttt{#1}}
@@ -411,8 +417,28 @@ which is responsible for handling the client's requests. If for any reason, the
 disconnect the user (by removing the session) and continue to the next iteration
 of the loop.
 
+\begin{warningbox}{Limitation}
+    It is possible, that the server could be overwhelmed by the number of clients
+    connected to it, as it spawns a new thread for each connection. This could
+    lead to a situation where the server runs out of resources, and the system
+    becomes unresponsive. To mitigate this, the server could be modified to use a
+    thread pool, which would limit the number of threads that can be spawned at
+    any given time.
+\end{warningbox}
+
 To completely unravel the server's execution flow, all that is left is to
 implement the \code{handle\_client} function.
 
+Firstly, we set up the client's \code{TcpStream} to timeout after 10 minutes,
+which is the maximum time a client can be inactive before being disconnected. We
+then read the first 4 bytes from the stream, which contain the length of the
+payload, and then read the payload itself. The thread will block until the
+payload is received, or until the timeout is reached.
+
+Once the payload is received, we decode it into a \code{Packet} enum, which
+contains the client's request. Then we immediately lock the mutex containing the
+server state, as we're entering the critical section.
+
+% TODO: Talk about the glorified switch case and how wer're broadcasting packets in a DrawRequest/Response pattern for updates.
 
 \end{document}
