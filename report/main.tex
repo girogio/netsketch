@@ -441,4 +441,16 @@ server state, as we're entering the critical section.
 
 % TODO: Talk about the glorified switch case and how wer're broadcasting packets in a DrawRequest/Response pattern for updates.
 
+Next is arguably the most important part of the server. Firstly, we check
+whether the user has an existing session. If there is one, any type of packet is
+accepted, otherwise only a connect packet is expected, to create the session.
+
+Secondly, we perform pattern matching on the \code{Packet} enum and modify the
+canvas accordingly. One can think of a Rust \code{match} statement as a
+glorified switch case. After the canvas logic is performed, we
+\textit{broadcast} the update to every connected client, which is kept track of
+in the session. This is done in the form of a \code{Response} packet, which is
+meant to be transmitted by the server, ergo in response, to the clients after a
+\code{Request} packet has been sent to it.
+
 \end{document}
