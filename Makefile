@@ -11,6 +11,14 @@ client-a:
 client-b:
 	cargo run --package netsketch -- --address localhost --port 6666 --nickname mario
 
+test:
+	read -p "Enter number of clients: " n && \
+	echo "Starting $$n clients" && \
+	for i in $$(seq 1 $$n); do \
+		cargo run --package netsketch --features test -- --address localhost --port 6666 --nickname client-$$i & \
+	done
+
+
 install:
 	cargo install --path ns-client
 	cargo install --path ns-server
