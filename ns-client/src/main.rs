@@ -2,9 +2,8 @@ mod connection;
 mod models;
 mod operations;
 
-use std::thread::spawn;
-
 use clap::Parser;
+use std::thread::spawn;
 
 use crate::{
     connection::TcpPacketHandler,
