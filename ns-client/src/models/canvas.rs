@@ -2,7 +2,10 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use macroquad::{
     color::LIGHTGRAY,
-    input::{is_key_down, is_quit_requested, prevent_quit, KeyCode},
+    input::{
+        is_key_down, is_mouse_button_down, is_quit_requested, mouse_delta_position, prevent_quit,
+        KeyCode,
+    },
     math::vec2,
     shapes::{draw_circle, draw_line, draw_rectangle},
     text::draw_text,
@@ -120,7 +123,7 @@ impl ClientCanvas {
 
     /// This function should only be called in the same thread where the canvas
     /// provided by [`macroquad`] is being drawn.
-    fn draw_action(&self, entry: &CanvasEntry) {
+    fn draw_action(&self, entry: &CanvasEntry, x_off: f32, y_off: f32) {
         match &entry.element {
             CanvasElement::Line {
                 x1,
@@ -130,10 +133,10 @@ impl ClientCanvas {
                 colour,
             } => {
                 draw_line(
-                    *x1 as f32,
-                    *y1 as f32,
-                    *x2 as f32,
-                    *y2 as f32,
+                    *x1 as f32 - x_off,
+                    *y1 as f32 - y_off,
+                    *x2 as f32 - x_off,
+                    *y2 as f32 - y_off,
                     5.,
                     (*colour).into(),
                 );
@@ -144,7 +147,12 @@ impl ClientCanvas {
                 radius,
                 colour,
             } => {
-                draw_circle(*x as f32, *y as f32, *radius as f32, (*colour).into());
+                draw_circle(
+                    *x as f32 - x_off,
+                    *y as f32 - y_off,
+                    *radius as f32,
+                    (*colour).into(),
+                );
             }
             CanvasElement::Rect {
                 x,
@@ -154,15 +162,21 @@ impl ClientCanvas {
                 colour,
             } => {
                 draw_rectangle(
-                    *x as f32,
-                    *y as f32,
+                    *x as f32 - x_off,
+                    *y as f32 - y_off,
                     *width as f32,
                     *height as f32,
                     (*colour).into(),
                 );
             }
             CanvasElement::Text { x, y, text, colour } => {
-                draw_text(text, *x as f32, *y as f32, 50., (*colour).into());
+                draw_text(
+                    text,
+                    *x as f32 - x_off,
+                    *y as f32 - y_off,
+                    50.,
+                    (*colour).into(),
+                );
             }
         }
     }
@@ -171,6 +185,9 @@ impl ClientCanvas {
     /// provided by [`macroquad`] is being drawn.
     pub async fn draw(&mut self) {
         prevent_quit();
+        let mut x_off = 0f32;
+        let mut y_off = 0f32;
+
         loop {
             clear_background(LIGHTGRAY);
 
@@ -181,12 +198,21 @@ impl ClientCanvas {
                 ToolType::Text => "Aa",
             };
 
+            // draw_rectangle_lines(
+            //     0. - x_off,
+            //     0. - y_off,
+            //     screen_width(),
+            //     screen_height(),
+            //     2.,
+            //     Color::from_hex(0),
+            // );
+
             // Draw all entries
             self.canvas
                 .entries
                 .iter()
                 .filter(|entry| entry.shown)
-                .for_each(|entry| self.draw_action(entry));
+                .for_each(|entry| self.draw_action(entry, x_off, y_off));
 
             // Draw the tool icon
             draw_text(
@@ -205,8 +231,15 @@ impl ClientCanvas {
                 self.draw_exit_dialog();
             }
 
+            let delta = mouse_delta_position();
+            if is_mouse_button_down(macroquad::input::MouseButton::Left) {
+                x_off += delta.x * screen_width();
+                y_off += delta.y * screen_height();
+            }
+
             if self.user_decided_to_exit {
                 self.tcp_packet_sender.send(TcpPacket::Disconnect).unwrap();
+                break;
             }
 
             while let Ok(command) = self.canvas_receiver.try_recv() {

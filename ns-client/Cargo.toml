@@ -2,6 +2,8 @@
 name = "netsketch"
 version = "0.1.0"
 edition = "2021"
+authors = ["Giorgio Grigolo"]
+default-run = "netsketch"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,4 +15,13 @@ clap.workspace = true
 rand = { version = "0.8.5", optional = true }
 
 [features]
-test = ["rand"]
+headless = ["rand"]
+
+[[bin]]
+name = "netsketch"
+path = "src/main.rs"
+
+[[bin]]
+name = "netsketch-test"
+path = "src/test.rs"
+required-features = ["headless"]
