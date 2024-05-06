@@ -6,9 +6,9 @@ use ns_core::models::packets::TcpPacket;
 
 use crate::models::canvas::CanvasCommand;
 
-pub struct TcpPacketHandler;
+pub struct TcpHandler;
 
-impl TcpPacketHandler {
+impl TcpHandler {
     pub fn start(
         address: String,
         port: u16,

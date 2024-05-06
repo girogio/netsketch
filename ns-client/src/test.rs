@@ -4,7 +4,7 @@ mod operations;
 
 use clap::Parser;
 
-use crate::{connection::TcpPacketHandler, models::canvas::CanvasCommand};
+use crate::{connection::TcpHandler, models::canvas::CanvasCommand};
 
 use ns_core::errors::Result;
 use ns_core::models::packets::TcpPacket;
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     let (canvas_sender, _a) = std::sync::mpsc::channel::<CanvasCommand>();
 
     let tcp_handler =
-        TcpPacketHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
+        TcpHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
 
     tcp_handler.send(TcpPacket::Connect(args.nickname.clone()))?;
 

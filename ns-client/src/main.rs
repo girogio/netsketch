@@ -7,7 +7,7 @@ use macroquad::window::{clear_background, next_frame, Conf};
 use std::thread::spawn;
 
 use crate::{
-    connection::TcpPacketHandler,
+    connection::TcpHandler,
     models::canvas::{CanvasCommand, ClientCanvas},
     operations::handle_prompt,
 };
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
     let (canvas_sender, canvas_receiver) = std::sync::mpsc::channel::<CanvasCommand>();
 
     let tcp_handler =
-        TcpPacketHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
+        TcpHandler::start(args.address.to_string(), args.port, canvas_sender.clone())?;
 
     tcp_handler.send(TcpPacket::Connect(args.nickname.clone()))?;
 
