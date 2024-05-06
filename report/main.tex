@@ -513,14 +513,18 @@ this is so that when the client draws something on the canvas, it can send the
 packet to the server, whilst receiving updates from the server at the same time.
 
 How does the client know when to send a packet to the server, if the thing that
-handles all the packets is in a different thread? The answer is a
-\textit{multiple-sender-single-consumer} channel. Before creating the thread, we
+handles all the packets is isolated in a different thread? The answer is by using a
+\textit{multiple-sender-single-consumer} (MPSC) channel. Before creating the thread, we
 initialize an MPSC channel, creating a (cloneable) sender, and a receiver. The
 receiver is passed to the TCP handler thread, and the sender is passed to all
 the other threads that need to send packets to the server.
 
 This design patterns allows us to send packets to the server from any thread,
 whilst seperating concerns and keeping the code clean and modular.
+
+\subsubsection{Canvas Thread}
+
+
 
 
 
