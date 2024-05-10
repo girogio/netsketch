@@ -41,7 +41,7 @@ fn main() {
                     if handle_client(stream.try_clone().unwrap(), server_state.clone()).is_err() {
                         match server_state.lock() {
                             Ok(mut server_state) => {
-                                if let Err(e) = server_state.disconnect_user(&stream) {
+                                if let Err(e) = server_state.disconnect_user(stream) {
                                     error!("Failed to disconnect: {e}");
                                 }
                                 break;

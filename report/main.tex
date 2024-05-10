@@ -579,7 +579,18 @@ array of entries and call the respective macroquad \code{draw} function.
     called. If these don't match, the client crashes.
 \end{warningbox}
 
+The client's draw list expiry time, is checked whenever a client reconnects, and
+if the difference between that and the currenet time is greater than one minute,
+the client's draw list is cleared. This is possible as it's stored completely on
+the server, as it is also used to determine the undo action to be performed.
+
 \newpage
+
+\appendix
+
+\section{Client-Server Interaction Flow}
+
+\vfill
 
 \begin{figure}[h]
     \begin{center}
@@ -612,7 +623,7 @@ array of entries and call the respective macroquad \code{draw} function.
             \node [int] (cn) [node distance=.2cm, below=of dots] {Client $n$};
             \draw[->] (s) -- (c1) node[above,pos=.6,yshift=1em] {Notification};
             \draw[->] (s) -- (c2) node[above,pos=.5,yshift=.1em] {Notification};
-            \draw[->] (s) -- (c3) node[above,pos=.5,yshift=.2em] {Canvas};
+            \draw[->] (s) -- (c3) node[above,pos=.5,yshift=.2em] {\code{Canvas}};
             \draw[->] (s) -- (cn) node[above,pos=.6,yshift=-3em] {Notification};
         \end{tikzpicture}
     \end{center}
@@ -620,8 +631,45 @@ array of entries and call the respective macroquad \code{draw} function.
     \caption{Client connection flow}
 \end{figure}
 
-\vspace{1em}
+\vfill
 
+\begin{figure}[h]
+    \begin{center}
+        \begin{tikzpicture}[
+                >=latex',
+                auto,
+                scale=0.5,
+                every node/.style={scale=0.5}
+            ]
+            \node [int] (c1) [] {Client 1};
+            \node [int] (c2) [node distance=.5cm, below=of c1] {Client 2};
+            \node [int] (c3) [node distance=.5cm, below=of c2] {Client 3};
+            \node (s) at ($(c2)!0.5!(c3)$) [int] [node distance=2cm, left=of c2] {Server};
+            \node [] (dots) [node distance=.2cm, below=of c3] {$\vdots$};
+            \node [int] (cn) [node distance=.2cm, below=of dots] {Client $n$};
+            \draw[<-] (s) -- (c3) node[above,pos=.4,yshift=.5em] {Disconnect} ;
+        \end{tikzpicture}
+        \hspace{5em}
+        \begin{tikzpicture}[
+                >=latex',
+                auto,
+                scale=0.5,
+                every node/.style={scale=0.5}
+            ]
+            \node [int] (c1) [] {Client 1};
+            \node [int] (c2) [node distance=.5cm, below=of c1] {Client 2};
+            \node [int] (c3) [node distance=.5cm, below=of c2] {Client 3};
+            \node (s) at ($(c2)!0.5!(c3)$) [int] [node distance=2cm, left=of c2] {Server};
+            \node [] (dots) [node distance=.2cm, below=of c3] {$\vdots$};
+            \node [int] (cn) [node distance=.2cm, below=of dots] {Client $n$};
+            \draw[->] (s) -- (c3) node[above,pos=.5,yshift=.2em] {Disconnect};
+        \end{tikzpicture}
+    \end{center}
+    \label{fig:delete}
+    \caption{User disconnect flow}
+\end{figure}
+
+\vfill
 
 \begin{figure}[h]
     \begin{center}
@@ -659,7 +707,10 @@ array of entries and call the respective macroquad \code{draw} function.
         \end{tikzpicture}
     \end{center}
     \label{fig:draw}
-    \caption{Draw entry flow}
+    \caption{Draw/update/delete/clear flow}
 \end{figure}
+
+
+\vfill
 
 \end{document}

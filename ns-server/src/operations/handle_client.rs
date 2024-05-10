@@ -177,8 +177,8 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
 
             TcpPacket::Disconnect => {
                 user_data.last_login = Some(std::time::Instant::now());
+                server_state.disconnect_user(stream)?;
                 server_state.users = users;
-                // server_state.disconnect_user(&stream)?;
                 return Ok(());
             }
 
@@ -259,6 +259,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             }
         }
 
+        // Send the notification packet to anyone except the user that connected
         for connection in server_state.sessions.iter_mut() {
             if connection.stream.peer_addr()? != stream.peer_addr()? {
                 connection
@@ -268,6 +269,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
             }
         }
 
+        // reply to the user trying to connect
         stream.write_all(&packet_bytes)?;
         stream.flush()?;
     } else {

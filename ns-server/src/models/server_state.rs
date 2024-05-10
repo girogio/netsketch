@@ -1,5 +1,5 @@
 use std::{collections::HashMap, net::TcpStream};
-use tracing::{error, warn};
+use tracing::{error, info};
 
 use ns_core::errors::{Result, ServerError};
 use ns_core::models::canvas::Canvas;
@@ -33,26 +33,14 @@ impl ServerState {
         Ok(())
     }
 
-    pub fn disconnect_user(&mut self, stream: &TcpStream) -> Result<()> {
-        warn!("Ending session belonging to {:?}", stream.peer_addr()?);
-        let peer_addr = match stream.peer_addr() {
-            Ok(addr) => addr,
-            Err(e) => {
-                error!("Failed to get peer address: {:?}", e);
-                return Err(ServerError::UserNotFound.into());
-            }
-        };
+    pub fn disconnect_user(&mut self, stream: TcpStream) -> Result<()> {
+        info!("Ending session belonging to {:?}", stream.peer_addr()?);
+        let peer_addr = stream.peer_addr()?;
 
         self.sessions
             .retain(|x| x.stream.peer_addr().ok() != Some(peer_addr));
 
-        match stream.shutdown(std::net::Shutdown::Both) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                error!("Failed to shutdown stream: {:?}", e);
-                Err(ServerError::UserNotFound.into())
-            }
-        }
+        Ok(())
     }
 
     pub fn get_username(&self, stream: &TcpStream) -> Option<&String> {
