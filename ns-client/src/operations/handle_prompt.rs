@@ -199,8 +199,8 @@ pub fn handle_prompt(
 
             ["exit"] => {
                 packet_sender.send(TcpPacket::Disconnect).unwrap();
-                drop(packet_sender);
                 drop(canvas_sender);
+                drop(packet_sender);
                 std::process::exit(0);
             }
 

@@ -1,12 +1,13 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use macroquad::{
+    camera::{set_camera, Camera2D},
     color::LIGHTGRAY,
     input::{
         is_key_down, is_mouse_button_down, is_quit_requested, mouse_delta_position, prevent_quit,
         KeyCode,
     },
-    math::vec2,
+    math::{vec2, Vec2},
     shapes::{draw_circle, draw_line, draw_rectangle},
     text::draw_text,
     ui::{hash, root_ui, widgets::Window},
@@ -123,7 +124,7 @@ impl ClientCanvas {
 
     /// This function should only be called in the same thread where the canvas
     /// provided by [`macroquad`] is being drawn.
-    fn draw_action(&self, entry: &CanvasEntry, x_off: f32, y_off: f32) {
+    fn draw_action(&self, entry: &CanvasEntry) {
         match &entry.element {
             CanvasElement::Line {
                 x1,
@@ -133,10 +134,10 @@ impl ClientCanvas {
                 colour,
             } => {
                 draw_line(
-                    *x1 as f32 - x_off,
-                    *y1 as f32 - y_off,
-                    *x2 as f32 - x_off,
-                    *y2 as f32 - y_off,
+                    *x1 as f32,
+                    *y1 as f32,
+                    *x2 as f32,
+                    *y2 as f32,
                     5.,
                     (*colour).into(),
                 );
@@ -147,12 +148,7 @@ impl ClientCanvas {
                 radius,
                 colour,
             } => {
-                draw_circle(
-                    *x as f32 - x_off,
-                    *y as f32 - y_off,
-                    *radius as f32,
-                    (*colour).into(),
-                );
+                draw_circle(*x as f32, *y as f32, *radius as f32, (*colour).into());
             }
             CanvasElement::Rect {
                 x,
@@ -162,21 +158,15 @@ impl ClientCanvas {
                 colour,
             } => {
                 draw_rectangle(
-                    *x as f32 - x_off,
-                    *y as f32 - y_off,
+                    *x as f32,
+                    *y as f32,
                     *width as f32,
                     *height as f32,
                     (*colour).into(),
                 );
             }
             CanvasElement::Text { x, y, text, colour } => {
-                draw_text(
-                    text,
-                    *x as f32 - x_off,
-                    *y as f32 - y_off,
-                    50.,
-                    (*colour).into(),
-                );
+                draw_text(text, *x as f32, *y as f32, 50., (*colour).into());
             }
         }
     }
@@ -185,8 +175,12 @@ impl ClientCanvas {
     /// provided by [`macroquad`] is being drawn.
     pub async fn draw(&mut self) {
         prevent_quit();
+
         let mut x_off = 0f32;
         let mut y_off = 0f32;
+
+        let mut zoom_x = 0.0001;
+        let mut zoom_y = 0.0001;
 
         loop {
             clear_background(LIGHTGRAY);
@@ -198,22 +192,6 @@ impl ClientCanvas {
                 ToolType::Text => "Aa",
             };
 
-            // draw_rectangle_lines(
-            //     0. - x_off,
-            //     0. - y_off,
-            //     screen_width(),
-            //     screen_height(),
-            //     2.,
-            //     Color::from_hex(0),
-            // );
-
-            // Draw all entries
-            self.canvas
-                .entries
-                .iter()
-                .filter(|entry| entry.shown)
-                .for_each(|entry| self.draw_action(entry, x_off, y_off));
-
             // Draw the tool icon
             draw_text(
                 tool_icon,
@@ -222,6 +200,19 @@ impl ClientCanvas {
                 30.,
                 self.selected_colour.into(),
             );
+
+            set_camera(&Camera2D {
+                zoom: Vec2::new(zoom_x, screen_width() / screen_height() * zoom_y),
+                offset: Vec2::new(x_off, y_off),
+                ..Default::default()
+            });
+
+            // Draw all entries
+            self.canvas
+                .entries
+                .iter()
+                .filter(|entry| entry.shown)
+                .for_each(|entry| self.draw_action(entry));
 
             if is_quit_requested() || is_key_down(KeyCode::Escape) {
                 self.show_exit_dialog = true;
@@ -233,8 +224,19 @@ impl ClientCanvas {
 
             let delta = mouse_delta_position();
             if is_mouse_button_down(macroquad::input::MouseButton::Left) {
-                x_off += delta.x * screen_width();
-                y_off += delta.y * screen_height();
+                x_off -= delta.x;
+                y_off += delta.y;
+            }
+
+            // zoom if scolling down
+            if macroquad::input::mouse_wheel().1 < 0. {
+                zoom_x *= 1.1;
+                zoom_y *= 1.1;
+            }
+
+            if macroquad::input::mouse_wheel().1 > 0. {
+                zoom_x *= 0.9;
+                zoom_y *= 0.9;
             }
 
             if self.user_decided_to_exit {
@@ -245,6 +247,8 @@ impl ClientCanvas {
             while let Ok(command) = self.canvas_receiver.try_recv() {
                 self.process_command(command);
             }
+
+            macroquad::prelude::set_default_camera();
 
             next_frame().await;
         }
