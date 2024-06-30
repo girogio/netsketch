@@ -11,6 +11,9 @@
 \usepackage[scale=0.9]{sourcecodepro}
 \usepackage{bytefield}
 \usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+
 \usepackage{adjustbox}
 
 
@@ -22,7 +25,7 @@
 \tikzstyle{sum}=[draw,shape=circle,inner sep=2pt,text centered,node distance=3.5cm]
 \tikzstyle{summ}=[drawshape=circle,inner sep=4pt,text centered,node distance=3.cm]
 
-% a4 marigns
+% a4 margins
 \usepackage[a4paper, total={6in, 8in}]{geometry}
 
 \tcbset {
@@ -126,7 +129,7 @@ To conform with the Rust ecosystem's conventions, the above components are manif
 A considerable effort has been made to use as few external libraries (or
 \textit{crates}) as possible. The only crates used are
 \begin{itemize}
-    \item \href{https://docs.rs/clap/latest/clap/}{\code{clap}} for the command-line interfaces of the server and the client,
+    \item \href{https://docs.rs/clap/latest/clap/}{\code{clap}} for the facilitation of development of the command-line interfaces of the server and the client,
     \item \href{https://docs.rs/thiserror/latest/thiserror/}{thiserror} for better error handling,
     \item \href{https://docs.rs/bincode/latest/bincode/}{\code{bincode}} for encoding and decoding data structures into and from bytes,
     \item \href{https://docs.rs/macroquad/latest/macroquad/}{\code{macroquad}} for the client's graphical user interface, and
@@ -537,7 +540,7 @@ abstraction of the client canvas, where a \code{for} loop iterates over the
 cached canvas entries and draws them on the screen. While using \code{async} and
 \code{await}, we note that the \code{canvas.draw()} function is a blocking call,
 which is placed at the end of the client's main method. It can be seen as
-running in it's own thread, but really it's the final blocking call of the main
+running in it's own thread, but really, it's the final blocking call of the main
 thread.
 
 As we are explaining what the canvas thread is doing, it is an opportune time to introduce the \code{ClientCanvas}.
@@ -545,15 +548,15 @@ As we are explaining what the canvas thread is doing, it is an opportune time to
 \begin{subbox}{}
     \lstset{xleftmargin=0\textwidth, xrightmargin=0\textwidth}
     \begin{lstlisting}
-pub struct ClientCanvas {
-    pub nickname: String,
-    pub canvas: Canvas,
-    pub selected_tool: ToolType,
-    pub selected_colour: [u8; 4],
-    pub user_decided_to_exit: bool,
-    pub show_exit_dialog: bool,
-    pub canvas_receiver: Receiver<CanvasCommand>,
-    pub tcp_packet_sender: Sender<TcpPacket>,
+struct ClientCanvas {
+    nickname: String,
+    canvas: Canvas,
+    selected_tool: ToolType,
+    selected_colour: [u8; 4],
+    user_decided_to_exit: bool,
+    show_exit_dialog: bool,
+    canvas_receiver: Receiver<CanvasCommand>,
+    tcp_packet_sender: Sender<TcpPacket>,
 }
     \end{lstlisting}
 \end{subbox}
@@ -570,19 +573,132 @@ packets to the server. Interestingly enough, the same core canvas struct that we
 use in the server, is also sufficient for the client.
 
 Now to draw the contents of the \code{Canvas} structs, we just iterate over its
-array of entries and call the respective macroquad \code{draw} function.
+array of entries and call the respective \code{macroquad} \code{draw} function.
 
-\begin{warningbox}{Warning} It was noted that macroquad makes use of
+\begin{warningbox}{Warning} It was noted that \code{macroquad} makes use of
     \code{thread-assert}, so we may only call its draw functions in the same
     thread in which the canvas is being draw, since upon window creation, it
     saves the current thread id, and checks against it every time a function is
     called. If these don't match, the client crashes.
 \end{warningbox}
 
-The client's draw list expiry time, is checked whenever a client reconnects, and
-if the difference between that and the currenet time is greater than one minute,
+The client's draw list's expiry time is checked whenever a client reconnects, and
+if the difference between that and the current time is greater than one minute,
 the client's draw list is cleared. This is possible as it's stored completely on
 the server, as it is also used to determine the undo action to be performed.
+
+\newpage
+
+\subsubsection{Input Handler Thread}
+
+Without much to be said here, the final part of the client is the input handler, which is spawned in a new thread, to loop indefinitely without blocking the other threads, which also have a task to perform concurrently.
+
+The input handler is responsible for reading input from the user, choosing the correct command to send to the canvas thread in the form of a \code{CanvasCommand}, which is then processed by the canvas thread appropriately.
+
+Pattern matching is performed on the input string, to \textit{unpack} the
+various commands that the user can issue, together with their arguments.
+
+\begin{warningbox}{Limitation}
+    The input handler thread is not wrapped by a monitor, which means that if it the thread panics, the client will not be able to recover and hence accept any input. Some of the reasons for which this thread may panic is when entering a string which is not an integer, when it is expected. To be able to issue commands once again, one must restart the client.
+\end{warningbox}
+
+
+\section{Testing and Performance Evaluation}
+
+
+
+\subsection{Testing}
+
+The Netsketch client, in reality has two entrypoints, similar to two modes of operation, namely the headless mode, and the CLI mode. In this section we shall focus more one the headless mode.
+
+\subsubsection{Headless Mode}
+
+The headless mode is a mode of operation where the client does not display the
+canvas, but instead repeatedly sends predefined commands to the server, with
+some delay in between each packet.
+
+In this scenario, a headless client shall be launched with the same CLI arguments as that of a normal client, as follows.
+
+\begin{center}
+    \code{cargo run -{-}bin netsketch-test {-}-features headless {-}{-} <CLI ARGS>}
+\end{center}
+
+This will launch an instance of the client that will connect to the server, and
+with an interval defined by the \code{count} variable, will send randomized draw commands to the server with random coordinates, colours, and shapes.
+
+\subsubsection{Stress Testing}
+
+One headless client will not do much harm to the server, even with a high
+frequency of packets being sent. However, if we launch multiple headless clients
+at the same time, we can simulate a scenario where the server is \textit{extremely} overwhelmed by the number of requests being sent to it.
+
+To meaningfully stress test the server, an entry in the \code{Makefile} has been
+prepared, which asks the user how many headless clients they would like to
+launch, and then launches that many clients, each doing what has been described
+in the previous section. To see the effects of these interactions, we may
+manually launch a legitimate client, with a canvas displayed, and admire \textit{the dance of colourful shapes popping in existence on the
+    canvas in quick succession.}
+
+To accelerate this process, the following commands may be executed to launch a
+number of headless clients and see their effects on the server.
+
+\begin{subbox}{}
+    \begin{lstlisting}
+        make server
+        make client-a
+        make test
+    \end{lstlisting}
+\end{subbox}
+
+\subsubsection{Performance Evaluation}
+
+
+To meaningfully measure how good our server did under the stress test described in the previous section, we must collect some metrics.
+
+For this purpose, I launched the stress test with varying numbers of headless clients in parallel, and from another client, I queried the server for the draw list to see how many entries were in the canvas after the clients sent their packets. In this way, we
+can see how many packets were dropped, and how many were received by the server and subsequently processed.
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+        \begin{axis}[
+                xlabel={Number of Clients},
+                ylabel={Effective Packets Received},
+                grid=major,
+                width=13cm,
+                height=7cm,
+                title={Concurrent Client Performance (1pkt/100ms, tot. 20pkts)},
+                legend pos=south east,
+                /pgf/number format/.cd,
+                use comma,
+                1000 sep={},
+                ytick={0,200,400,600,800,1000,1200,1400,1600,1800,2000},
+                xtick={10,20,30,40,50,60,70,80,90,100,150,200}
+            ]
+            \addplot[
+                color=blue,
+                mark=square*,
+                thick
+            ]
+            coordinates {
+                    (10,200)
+                    (20,400)
+                    (30,600)
+                    (40,800)
+                    (50,1000)
+                    (60,1200)
+                    (70,1400)
+                    (80,1600)
+                    (90,1620)
+                    (100,1560)
+                    (200,1639)
+                };
+            \addlegendentry{Effective Packets Received}
+        \end{axis}
+    \end{tikzpicture}
+\end{figure}
+
+It was noted that the server is able to handle around 80 clients each sending packets every 100ms, before starting to drop packets. This is a good result, as it shows that the server is able to handle a large number of clients concurrently, whilst knowing that real people will never be able to draw that fast.
 
 \newpage
 
@@ -632,6 +748,8 @@ the server, as it is also used to determine the undo action to be performed.
 \end{figure}
 
 \vfill
+
+
 
 \begin{figure}[h]
     \begin{center}

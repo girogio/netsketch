@@ -3,6 +3,7 @@ use std::{
     net::TcpStream,
     sync::{Arc, Mutex},
     time::Duration,
+    usize,
 };
 
 use ns_core::errors::{Error, Result, ServerError};
@@ -203,6 +204,15 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                         Some(entry.id)
                     })
                     .collect();
+
+                info!("IDS TO DELETE: {:?}", ids_to_delete);
+
+                server_state.canvas.entries.retain(|entry| {
+                    if only_owned && entry.author != user_data.username {
+                        return true;
+                    }
+                    false
+                });
 
                 // Prepare the update packet
                 let clear_packet = TcpPacket::ClearResponse { ids_to_delete };
