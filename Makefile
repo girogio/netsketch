@@ -6,10 +6,10 @@ server:
 	cargo run --package netsketch-server -- --address 127.0.0.1 --port 6666
 
 client-a:
-	cargo run  -- --address localhost --port 6666 --nickname girogio
+	cargo run  -- --address localhost --port 6666 --nickname mario
 
 client-b:
-	cargo run --package netsketch -- --address localhost --port 6666 --nickname mario
+	cargo run --package netsketch -- --address localhost --port 6666 --nickname daniel
 
 test:
 	read -p "Enter number of clients: " n && \

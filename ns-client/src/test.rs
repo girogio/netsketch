@@ -39,7 +39,7 @@ fn main() -> Result<()> {
 
     let tcp_handler_c = tcp_handler.clone();
 
-    let count = 20;
+    let count = 100;
     let upper = 500;
     let mut random = rand::thread_rng();
 

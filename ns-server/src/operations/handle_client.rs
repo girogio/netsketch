@@ -205,8 +205,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                     })
                     .collect();
 
-                info!("IDS TO DELETE: {:?}", ids_to_delete);
-
+                // actually delete them on server side
                 server_state.canvas.entries.retain(|entry| {
                     if only_owned && entry.author != user_data.username {
                         return true;
@@ -255,7 +254,7 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
                 let now = std::time::Instant::now();
 
                 // TODO: Increase the time limit to one minute
-                if now.duration_since(last_login).as_secs() > 5 {
+                if now.duration_since(last_login).as_secs() > 60 {
                     info!("Clearing {}'s action history", nickname);
                     user.action_history.clear();
                 }
@@ -288,13 +287,5 @@ pub fn handle_client(mut stream: TcpStream, server_state: Arc<Mutex<ServerState>
 
     server_state.users = users;
 
-    // if let Err(e) = handle_client_inner(&mut server_state, stream.try_clone().unwrap()) {
-    //     debug!("Unexpected logout: {:?}", e);
-    //     server_state.disconnect_user(&stream).unwrap();
-    //     break;
-    // }
-
     Ok(())
 }
-
-// fn handle_client_inner(server_state: &mut ServerState, mut stream: TcpStream) -> Result<()>

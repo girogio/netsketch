@@ -179,8 +179,8 @@ impl ClientCanvas {
         let mut x_off = 0f32;
         let mut y_off = 0f32;
 
-        let mut zoom_x = 0.0001;
-        let mut zoom_y = 0.0001;
+        let mut zoom_x = 0.001;
+        let mut zoom_y = 0.001;
 
         loop {
             clear_background(LIGHTGRAY);
